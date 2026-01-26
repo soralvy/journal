@@ -8,6 +8,7 @@ import { Http2ServerRequest } from 'node:http2';
 import { VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
@@ -40,6 +41,10 @@ async function bootstrap() {
   app.useGlobalFilters(new GlobalExceptionFilter());
 
   app.enableShutdownHooks();
+
+  const config = new DocumentBuilder().setTitle('Journal app').setVersion('1.0').addTag('journal').build();
+  const documentFactory = () => SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('docs', app, documentFactory);
 
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
