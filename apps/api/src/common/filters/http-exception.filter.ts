@@ -45,6 +45,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     message: string | string[];
     error: string;
   } {
+    if (exception instanceof ZodValidationException) {
+      return this.handleZodError(exception.getZodError());
+    }
+
+    if (exception instanceof ZodSerializationException) {
+      const possibleError = exception.getZodError();
+      if (possibleError instanceof ZodError) {
+        this.logger.error(`Serialization Safety Fail: ${JSON.stringify(possibleError.issues)}`);
+      }
+      return {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Internal server error',
+        error: 'Internal Server Error',
+      };
+    }
+    if (exception instanceof ZodError) {
+      return this.handleZodError(exception);
+    }
     if (exception instanceof HttpException) {
       const response = exception.getResponse();
       const status = exception.getStatus();
@@ -72,26 +90,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         message: 'Invalid database query parameters',
         error: 'Bad Request',
       };
-    }
-
-    if (exception instanceof ZodValidationException) {
-      return this.handleZodError(exception.getZodError());
-    }
-
-    if (exception instanceof ZodSerializationException) {
-      const possibleError = exception.getZodError();
-      if (possibleError instanceof ZodError) {
-        this.logger.error(`Serialization Safety Fail: ${JSON.stringify(possibleError.issues)}`);
-      }
-      return {
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Internal server error',
-        error: 'Internal Server Error',
-      };
-    }
-
-    if (exception instanceof ZodError) {
-      return this.handleZodError(exception);
     }
 
     return {
