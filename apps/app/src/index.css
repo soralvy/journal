@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Playfair Display", ui-serif, serif;
+
+  --color-stoic-black: #1a1a1a;
+  --color-stoic-white: #fafafa;
+  --color-stoic-background: #F9F9F9;
+  --color-stoic-gray-100: #f4f4f5;
+  --color-stoic-gray-800: #27272a;
+
+  --color-background: var(--color-stoic-background);
+  --color-foreground: var(--color-stoic-black);
+  
+  --color-primary: var(--color-stoic-black);
+  --color-primary-foreground: var(--color-stoic-white);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
+}
