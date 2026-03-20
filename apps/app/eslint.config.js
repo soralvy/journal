@@ -8,6 +8,7 @@ import unicorn from 'eslint-plugin-unicorn';
 import sonarjs from 'eslint-plugin-sonarjs';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import tseslint from 'typescript-eslint';
+import eslintConfigPrettier from 'eslint-config-prettier';
 
 export default tseslint.config(
   { ignores: ['dist', 'node_modules', '.tmp'] },
@@ -22,6 +23,7 @@ export default tseslint.config(
       jsxA11y.flatConfigs.strict, 
       unicorn.configs.flat.recommended,
       sonarjs.configs.recommended,
+      eslintConfigPrettier,
     ],
     languageOptions: {
       ecmaVersion: 2023,
