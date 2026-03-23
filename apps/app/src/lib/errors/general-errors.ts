@@ -14,11 +14,13 @@ export class AppValidationError extends Error {
 
 export class AppNetworkError extends Error {
   statusCode?: number | undefined;
+  options?: ErrorOptions | undefined;
 
-  constructor(message: string, statusCode?: number) {
+  constructor(message: string, statusCode?: number, options?: ErrorOptions) {
     super(message);
     this.name = 'AppNetworkError';
     this.statusCode = statusCode;
+    this.options = options;
   }
 }
 
