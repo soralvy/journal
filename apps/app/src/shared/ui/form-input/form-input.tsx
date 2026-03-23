@@ -76,14 +76,20 @@ export const FormInput = <T extends FieldValues>({
 
   return (
     <div className={`flex flex-col gap-2 ${className || ''}`}>
-      <Label htmlFor={id} className={errorMessage ? 'text-destructive' : ''}>
-        {label}
-        {isRequired && (
-          <span className="text-destructive ml-1" aria-hidden="true">
-            *
-          </span>
+      <div className="flex items-center justify-between">
+        <Label htmlFor={id} className={errorMessage ? 'text-destructive' : ''}>
+          {label}
+          {isRequired && (
+            <span className="text-destructive ml-1" aria-hidden="true">
+              *
+            </span>
+          )}
+        </Label>
+
+        {rightLabelSlot && (
+          <div className="text-sm font-medium">{rightLabelSlot}</div>
         )}
-      </Label>
+      </div>
 
       <Input
         id={id}

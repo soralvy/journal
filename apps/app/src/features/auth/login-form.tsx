@@ -50,6 +50,7 @@ export const LoginForm = () => {
         spellCheck="false"
       />
 
+      {/* TODO: add forgot password implementation */}
       <FormInput<LoginFormValues>
         name="password"
         label="Password"
@@ -57,7 +58,11 @@ export const LoginForm = () => {
         placeholder="••••••••"
         autoComplete="current-password"
         rightLabelSlot={
-          <Link to="/" className="text-primary hover:underline" tabIndex={-1}>
+          <Link
+            to="/"
+            className="text-secondary text-xs font-semibold hover:underline"
+            tabIndex={-1}
+          >
             Forgot password?
           </Link>
         }
