@@ -9,8 +9,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { queryClient } from './lib/queries';
 
-const router = createRouter({ routeTree });
-
+export const router = createRouter({ routeTree });
 declare module '@tanstack/react-router' {
   interface Register {
     router: typeof router;
@@ -24,8 +23,12 @@ if (!rootElement.innerHTML) {
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <Theme>
-          <Toaster richColors position="top-center" expand={false} />
-          <RouterProvider router={router} />
+          <Toaster
+            richColors
+            position="top-center"
+            expand={false}
+            theme="system"
+          />
           <RouterProvider router={router} />
         </Theme>
       </QueryClientProvider>
