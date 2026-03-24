@@ -28,8 +28,9 @@ export const LoginForm = () => {
   });
 
   const onSubmit = async (data: LoginFormValues) => {
-    const { data: response, error } = await authClient.signIn.magicLink({
+    const { error } = await authClient.signIn.magicLink({
       email: data.email,
+      callbackURL: `${window.location.origin}/dashboard`,
     });
 
     if (error) {
