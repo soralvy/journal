@@ -4,37 +4,26 @@ import {
   AppNetworkError,
   AppValidationError,
 } from '../errors';
-
+import { createAuthClient } from 'better-auth/react';
+import {
+  inferAdditionalFields,
+  magicLinkClient,
+} from 'better-auth/client/plugins';
+import type { Auth } from '../../../../api/src/app/auth/auth.configuration';
 const DEFAULT_ERROR_MESSAGE = 'An unexpected error occurred';
 
-let isRefreshing = false;
-let failedQueue: Array<{
-  resolve: () => void;
-  reject: (error: Error) => void;
-}> = [];
-
-const processQueue = (error: Error | null = null) => {
-  failedQueue.forEach((promise) => {
-    if (error) {
-      promise.reject(error);
-    } else {
-      promise.resolve();
-    }
-  });
-
-  failedQueue = [];
-};
-
-interface ApiClientConfig extends RequestInit {
-  _retry?: boolean;
-}
+export const authClient = createAuthClient({
+  baseURL:
+    import.meta.env['VITE_DEV_SERVER_BASE_URL'] || 'http://localhost:3000',
+  plugins: [magicLinkClient(), inferAdditionalFields<Auth>()],
+});
 
 export const apiClient = async <T>(
   endpoint: string,
-  config: ApiClientConfig = {},
+  config: RequestInit = {},
   schema?: ZodSchema<T>,
 ): Promise<T> => {
-  const requestConfig: ApiClientConfig = {
+  const requestConfig: RequestInit = {
     ...config,
     credentials: 'include',
     headers: {
@@ -46,56 +35,12 @@ export const apiClient = async <T>(
   try {
     const fetchResponse = await fetch(endpoint, requestConfig);
 
-    if (
-      fetchResponse.status === 401 &&
-      endpoint !== '/api/auth/refresh' &&
-      !requestConfig?._retry
-    ) {
-      if (isRefreshing) {
-        return new Promise<void>((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then(() => {
-            return apiClient<T>(
-              endpoint,
-              { ...requestConfig, _retry: true },
-              schema,
-            );
-          })
-          .catch((err) => {
-            throw err;
-          });
-      }
-
-      isRefreshing = true;
-
-      try {
-        const refreshTokenResponse = await fetch('/api/auth/refresh', {
-          method: 'POST',
-          credentials: 'include',
-        });
-
-        if (!refreshTokenResponse.ok) {
-          throw new Error('Refresh token expired or invalid');
-        }
-
-        processQueue();
-
-        return await apiClient<T>(
-          endpoint,
-          { ...requestConfig, _retry: true },
-          schema,
-        );
-      } catch (refreshError) {
-        processQueue(refreshError as Error);
-
-        throw refreshError;
-      } finally {
-      }
-    }
-
     if (!fetchResponse.ok) {
-      const data = await fetchResponse.json().catch(() => {});
+      if (fetchResponse.status === 401) {
+        throw new AppNetworkError('Session expired', 401);
+      }
+
+      const data = await fetchResponse.json().catch(() => ({}));
 
       if (fetchResponse.status === 400 && data?.fieldErrors) {
         throw new AppValidationError(data.fieldErrors);

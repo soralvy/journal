@@ -6,7 +6,7 @@ import { IncomingMessage } from 'node:http';
 import { Http2ServerRequest } from 'node:http2';
 
 import { VersioningType } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
+import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
@@ -28,8 +28,9 @@ async function bootstrap() {
   app.useLogger(app.get(PinoLogger));
 
   app.enableCors({
-    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
+    origin: process.env['CORS_ORIGINS']?.split(','),
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   });
 
   app.enableVersioning({
@@ -38,7 +39,9 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix('api');
-  app.useGlobalFilters(new GlobalExceptionFilter());
+
+  const httpAdapterHost = app.get(HttpAdapterHost);
+  app.useGlobalFilters(new GlobalExceptionFilter(httpAdapterHost));
 
   app.enableShutdownHooks();
 

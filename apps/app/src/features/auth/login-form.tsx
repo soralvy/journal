@@ -6,6 +6,7 @@ import { useLoginMutation } from './api/use-login-mutation';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { Form } from '../../shared/ui/form/form';
+import { authClient } from '../../lib/api-client';
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
@@ -26,15 +27,16 @@ export const LoginForm = () => {
     },
   });
 
-  const { mutateAsync } = useLoginMutation({
-    onSuccess: () => navigate({ to: '/', replace: true }),
-  });
-
   const onSubmit = async (data: LoginFormValues) => {
-    await toast.promise(mutateAsync(data), {
-      loading: 'Authenticating...',
-      success: 'Welcome back!',
+    const { data: response, error } = await authClient.signIn.magicLink({
+      email: data.email,
     });
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success('Check your email for the magic link!');
   };
 
   return (

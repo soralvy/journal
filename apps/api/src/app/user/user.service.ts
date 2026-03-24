@@ -9,13 +9,13 @@ import { CreateUserDto } from './dto/create-user.dto';
 export class UserService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createUser(createUserDto: CreateUserDto) {
-    const user = await this.prisma.user.create({
-      data: createUserDto,
-    });
+  // async createUser(createUserDto: CreateUserDto) {
+  //   const user = await this.prisma.user.create({
+  //     data: createUserDto,
+  //   });
 
-    return user;
-  }
+  //   return user;
+  // }
 
   async getUsers(query: PaginationDto) {
     const { page, limit } = query;
