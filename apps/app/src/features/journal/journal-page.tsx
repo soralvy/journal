@@ -7,13 +7,13 @@ import { JournalHeader } from './components/journal-header';
 import { JournalSidebar } from './components/journal-sidebar';
 import { useJournalDraft } from './use-journal-draft';
 
-export function JournalPage() {
+export const JournalPage = () => {
   const { body, setBody, setTitle, title, wordCount } = useJournalDraft();
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
-  const handleAssistantClose = () => setIsAssistantOpen(false);
+  const handleAssistantClose = () => { setIsAssistantOpen(false); };
   const handleAssistantToggle = () =>
-    setIsAssistantOpen((currentValue) => !currentValue);
+    { setIsAssistantOpen((currentValue) => !currentValue); };
 
   return (
     <main className="bg-stoic-background text-primary flex min-h-screen overflow-hidden">

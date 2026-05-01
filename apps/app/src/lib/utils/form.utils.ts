@@ -1,8 +1,9 @@
 import {
-  type UseFormSetError,
   type FieldValues,
   type Path,
+  type UseFormSetError,
 } from 'react-hook-form';
+
 import { AppValidationError } from '../errors';
 
 export const handleServerFormError = <T extends FieldValues>(
@@ -10,12 +11,12 @@ export const handleServerFormError = <T extends FieldValues>(
   setError: UseFormSetError<T>,
 ) => {
   if (error instanceof AppValidationError) {
-    Object.entries(error.fieldErrors).forEach(([field, message]) => {
+    for (const [field, message] of Object.entries(error.fieldErrors)) {
       setError(field as Path<T>, {
         type: 'server',
         message,
       });
-    });
+    }
     return;
   }
 

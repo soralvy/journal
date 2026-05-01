@@ -1,13 +1,13 @@
+import { CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { useId, useState } from 'react';
 import {
-  useController,
   type FieldPath,
   type FieldValues,
+  useController,
 } from 'react-hook-form';
+
 import { Input } from '../input/input';
 import { Label } from '../label/label';
-
-import { CheckCircle2, Eye, EyeOff } from 'lucide-react';
 
 export interface FormInputProps<T extends FieldValues> extends Omit<
   React.ComponentProps<'input'>,
@@ -57,7 +57,7 @@ export const FormInput = <T extends FieldValues>({
     endIcon = (
       <button
         type="button"
-        onClick={() => setShowPassword(!showPassword)}
+        onClick={() => { setShowPassword(!showPassword); }}
         className="hover:text-primary rounded-sm transition-colors focus-visible:outline-none"
         aria-label={showPassword ? 'Hide password' : 'Show password'}
       >

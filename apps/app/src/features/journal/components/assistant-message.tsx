@@ -2,12 +2,12 @@ import { Bot } from 'lucide-react';
 
 import type { AssistantMessageAuthor } from '../journal-mock-data';
 
-type AssistantMessageProps = {
+interface AssistantMessageProps {
   author: AssistantMessageAuthor;
   text: string;
-};
+}
 
-export function AssistantMessage({ author, text }: AssistantMessageProps) {
+export const AssistantMessage = ({ author, text }: AssistantMessageProps) => {
   const isUser = author === 'user';
 
   return (

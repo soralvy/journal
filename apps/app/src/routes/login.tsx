@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { LoginForm } from '../features/auth';
-import z from 'zod';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
+import z from 'zod';
+
+import { LoginForm } from '../features/auth';
 
 const loginSearchSchema = z.object({
   error: z.string().optional(),
@@ -13,7 +14,7 @@ export const Route = createFileRoute('/login')({
   validateSearch: loginSearchSchema,
 });
 
-function RouteComponent() {
+const RouteComponent = () => {
   const { error } = Route.useSearch();
   const navigate = useNavigate({ from: Route.id });
 

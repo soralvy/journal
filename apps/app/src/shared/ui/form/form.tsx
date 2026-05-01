@@ -1,8 +1,9 @@
 import {
+  type FieldValues,
   FormProvider,
   type UseFormReturn,
-  type FieldValues,
 } from 'react-hook-form';
+
 import { cn, handleServerFormError } from '../../../lib/utils';
 
 interface FormProps<T extends FieldValues> extends Omit<

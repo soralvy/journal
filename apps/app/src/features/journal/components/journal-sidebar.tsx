@@ -2,7 +2,7 @@ import { BarChart3, BookOpen } from 'lucide-react';
 
 import { recentReflections } from '../journal-mock-data';
 
-export function JournalSidebar() {
+export const JournalSidebar = () => {
   return (
     <aside className="border-stoic-black/10 hidden w-72 shrink-0 flex-col border-r bg-[#f2f2f2] px-6 py-6 lg:flex">
       <div className="pb-10">

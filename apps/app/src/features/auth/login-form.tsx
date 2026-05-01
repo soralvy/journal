@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+
 import { authClient } from '../../lib/api-client';
 import { Button, FormInput } from '../../shared/ui';
 import { Form } from '../../shared/ui/form/form';
@@ -27,7 +28,7 @@ export const LoginForm = () => {
   const onSubmit = async (data: LoginFormValues) => {
     const { error } = await authClient.signIn.magicLink({
       email: data.email,
-      callbackURL: `${window.location.origin}/dashboard`,
+      callbackURL: `${globalThis.location.origin}/dashboard`,
     });
 
     if (error) {

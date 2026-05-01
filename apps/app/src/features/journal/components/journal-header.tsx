@@ -1,11 +1,11 @@
 import { Button } from '../../../shared/ui';
 
-type JournalHeaderProps = {
+interface JournalHeaderProps {
   title: string;
   wordCount: number;
-};
+}
 
-export function JournalHeader({ title, wordCount }: JournalHeaderProps) {
+export const JournalHeader = ({ title, wordCount }: JournalHeaderProps) => {
   return (
     <header className="border-stoic-black/10 bg-stoic-background/80 flex h-16 shrink-0 items-center justify-between gap-4 border-b px-6 backdrop-blur-sm lg:px-12">
       <div className="flex min-w-0 flex-1 items-center gap-4">

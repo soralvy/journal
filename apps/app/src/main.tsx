@@ -1,13 +1,14 @@
-import { StrictMode } from 'react';
-import ReactDOM from 'react-dom/client';
-import { RouterProvider, createRouter } from '@tanstack/react-router';
 import './index.css';
 
-import { routeTree } from './routeTree.gen';
 import { Theme } from '@radix-ui/themes';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { createRouter,RouterProvider } from '@tanstack/react-router';
+import { StrictMode } from 'react';
+import ReactDOM from 'react-dom/client';
 import { Toaster } from 'sonner';
+
 import { queryClient } from './lib/queries';
+import { routeTree } from './routeTree.gen';
 
 export const router = createRouter({ routeTree });
 declare module '@tanstack/react-router' {
@@ -16,7 +17,7 @@ declare module '@tanstack/react-router' {
   }
 }
 
-const rootElement = document.getElementById('root')!;
+const rootElement = document.querySelector('#root')!;
 if (!rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement);
   root.render(

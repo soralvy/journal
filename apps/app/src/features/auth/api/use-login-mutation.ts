@@ -1,9 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+
 import { AppNetworkError } from '../../../lib/errors';
 import { queryKeys } from '../../../lib/queries';
 import type { LoginFormValues } from '../schemas/auth.schema';
 import { authApi } from './auth.api';
-import { toast } from 'sonner';
 
 interface UseLoginOptions {
   onSuccess?: () => void;

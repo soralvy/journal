@@ -2,7 +2,7 @@ import { RotateCw } from 'lucide-react';
 
 import { Button } from '../../../shared/ui';
 
-export function JournalGuidePanel() {
+export const JournalGuidePanel = () => {
   return (
     <aside className="border-stoic-black/10 bg-stoic-white hidden w-80 shrink-0 flex-col border-l xl:flex">
       <section className="border-stoic-black/10 border-b px-8 py-8">

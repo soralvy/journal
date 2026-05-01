@@ -5,17 +5,17 @@ import { Button } from '../../../shared/ui';
 import { assistantMessages } from '../journal-mock-data';
 import { AssistantMessage } from './assistant-message';
 
-type JournalAssistantProps = {
+interface JournalAssistantProps {
   isOpen: boolean;
   onClose: () => void;
   onToggle: () => void;
-};
+}
 
-export function JournalAssistant({
+export const JournalAssistant = ({
   isOpen,
   onClose,
   onToggle,
-}: JournalAssistantProps) {
+}: JournalAssistantProps) => {
   const messagesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -23,14 +23,14 @@ export function JournalAssistant({
       return;
     }
 
-    const animationFrame = window.requestAnimationFrame(() => {
+    const animationFrame = globalThis.requestAnimationFrame(() => {
       messagesRef.current?.scrollTo({
         top: messagesRef.current.scrollHeight,
         behavior: 'smooth',
       });
     });
 
-    return () => window.cancelAnimationFrame(animationFrame);
+    return () => { globalThis.cancelAnimationFrame(animationFrame); };
   }, [isOpen]);
 
   return (

@@ -1,14 +1,14 @@
-export type RecentReflection = {
+export interface RecentReflection {
   date: string;
   title: string;
-};
+}
 
 export type AssistantMessageAuthor = 'assistant' | 'user';
 
-export type AssistantMessage = {
+export interface AssistantMessage {
   author: AssistantMessageAuthor;
   text: string;
-};
+}
 
 export const recentReflections: RecentReflection[] = [
   {

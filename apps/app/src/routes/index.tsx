@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
+
 import { LoginForm } from '../features/auth';
 
 export const Route = createFileRoute('/')({
   component: Index,
 });
 // todo: replace this page with the home one
-function Index() {
+const Index = () => {
   return (
     <main className="bg-stoic-background relative flex min-h-screen items-center justify-between">
       <section className="flex min-h-screen w-1/2 flex-col justify-between p-12">

@@ -21,7 +21,7 @@ export default tseslint.config(
       react.configs.flat.recommended,
       react.configs.flat['jsx-runtime'], 
       jsxA11y.flatConfigs.strict, 
-      unicorn.configs.flat.recommended,
+      unicorn.configs.recommended,
       sonarjs.configs.recommended,
       eslintConfigPrettier,
     ],
