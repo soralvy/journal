@@ -67,6 +67,7 @@
 - Visual-only or unavailable controls must be disabled or clearly non-interactive.
 - Test user-visible behavior rather than implementation details.
 
+
 ## Backend Conventions
 
 - Follow existing Nest module/controller/service structure.

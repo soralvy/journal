@@ -9,7 +9,7 @@ import { Button, FormInput } from '../../shared/ui';
 import { Form } from '../../shared/ui/form/form';
 
 const loginSchema = z.object({
-  email: z.string().min(1, 'Email is required').email('Invalid email address'),
+  email: z.email('Invalid email address').min(1, 'Email is required'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 

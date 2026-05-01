@@ -9,7 +9,7 @@ export function useJournalDraft() {
   const wordCount = useMemo(() => {
     const text = `${title} ${body}`.trim();
 
-    if (!text) {
+    if (text === '') {
       return 0;
     }
 

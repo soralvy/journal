@@ -2,9 +2,6 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 
 import { LoginForm } from '../features/auth';
 
-export const Route = createFileRoute('/')({
-  component: Index,
-});
 // todo: replace this page with the home one
 const Index = () => {
   return (
@@ -43,4 +40,8 @@ const Index = () => {
       </section>
     </main>
   );
-}
+};
+
+export const Route = createFileRoute('/')({
+  component: Index,
+});

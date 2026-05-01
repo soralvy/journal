@@ -56,6 +56,7 @@ export const JournalPage = () => {
   return <main />;
 };
 ```
+
 Do not use function declarations for React components unless there is a specific reason.
 
 ## State And Data Ownership
@@ -119,10 +120,12 @@ Avoid:
 This app uses strict typed ESLint.
 
 React components:
+
 - Use arrow function components.
 - Prefer `export const ComponentName = (...) => { ... }`.
 
 Strict boolean rules:
+
 - Do not rely on truthy/falsy checks.
 - Use explicit checks:
   - `value !== undefined`
@@ -134,15 +137,46 @@ Strict boolean rules:
 - Do not use non-null assertions. Narrow values explicitly.
 
 Promises:
+
 - Await promises.
 - If intentionally fire-and-forget, prefix with `void`.
 - Event handlers that call async functions should handle errors.
 
 Testing:
+
 - Use Vitest + Testing Library.
 - Tests must typecheck.
 - Use `@testing-library/jest-dom/vitest` setup.
 - Do not add tests that require disabling type safety unless there is a clear reason.
 
 Generated files:
+
 - Do not edit `routeTree.gen.ts`.
+
+## Lint-fix policy
+
+When fixing lint errors:
+
+- Classify first, edit second.
+- Do not mix mechanical lint fixes with product behavior changes.
+- Do not edit generated files directly.
+- Do not implement TODOs just to satisfy lint.
+- Do not redesign API contracts during frontend lint cleanup.
+- Keep React components as arrow functions.
+- Prefer explicit checks over truthy/falsy checks.
+- Use `??` only for nullish fallback.
+- Use `void` for intentional fire-and-forget promises.
+- Ask before removing/renaming files that may be framework leftovers.
+
+Prefer named boolean variables when:
+
+- the condition is reused;
+- the condition has UI meaning;
+- the condition would make JSX noisy;
+- strict-boolean-expressions requires explicit narrowing.
+
+Avoid creating named booleans for every trivial one-off condition if inline explicit checks remain readable.
+
+For strings, prefer `value !== undefined && value.length > 0` when empty string should count as absent.
+For optional booleans, prefer `value === true`.
+For nullable ReactNode slots, prefer explicit null/undefined checks.

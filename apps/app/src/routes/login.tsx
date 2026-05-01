@@ -9,35 +9,29 @@ const loginSearchSchema = z.object({
   error: z.string().optional(),
 });
 
-export const Route = createFileRoute('/login')({
-  component: RouteComponent,
-  validateSearch: loginSearchSchema,
-});
-
 const RouteComponent = () => {
   const { error } = Route.useSearch();
   const navigate = useNavigate({ from: Route.id });
 
   useEffect(() => {
-    if (!error) return;
+    if (error === undefined) return;
 
     if (error === 'EXPIRED_TOKEN') {
-      toast.error('Your magic link expired. Please request a new one.', { 
-        id: 'expired-token' 
+      toast.error('Your magic link expired. Please request a new one.', {
+        id: 'expired-token',
       });
     } else {
-      toast.error('Authentication failed. Please try again.', { 
-        id: 'auth-error' 
+      toast.error('Authentication failed. Please try again.', {
+        id: 'auth-error',
       });
     }
 
-    navigate({
-      search: {}, 
-      replace: true, 
+    void navigate({
+      search: {},
+      replace: true,
     });
-    
   }, [error, navigate]);
-  
+
   return (
     <main className="bg-stoic-background relative flex min-h-screen items-center justify-between">
       <section className="flex min-h-screen w-1/2 flex-col justify-between p-12">
@@ -74,4 +68,9 @@ const RouteComponent = () => {
       </section>
     </main>
   );
-}
+};
+
+export const Route = createFileRoute('/login')({
+  component: RouteComponent,
+  validateSearch: loginSearchSchema,
+});

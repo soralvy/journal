@@ -23,13 +23,6 @@ export default tseslint.config(
     ],
   },
   {
-    files: ['src/routes/**/*.tsx'],
-    rules: {
-      'react-refresh/only-export-components': 'off',
-    },
-  },
-  
-  {
     files: ['**/*.{ts,tsx}'],
     extends: [
       js.configs.recommended,
@@ -109,6 +102,18 @@ export default tseslint.config(
 
       'unicorn/prevent-abbreviations': 'off',
       'unicorn/no-null': 'off',
+    },
+  },
+  {
+    files: ['src/routes/**/*.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
+    files: ['src/shared/ui/label/label.tsx'],
+    rules: {
+      'jsx-a11y/label-has-associated-control': 'off',
     },
   },
 );

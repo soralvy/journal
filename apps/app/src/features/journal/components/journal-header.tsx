@@ -14,7 +14,7 @@ export const JournalHeader = ({ title, wordCount }: JournalHeaderProps) => {
         </span>
         <span className="bg-stoic-black/20 h-1 w-1 shrink-0 rounded-full" />
         <span className="truncate text-sm font-medium">
-          {title || 'Untitled Reflection'}
+          {title === '' ? 'Untitled Reflection' : title}
         </span>
       </div>
 
@@ -32,4 +32,4 @@ export const JournalHeader = ({ title, wordCount }: JournalHeaderProps) => {
       </div>
     </header>
   );
-}
+};

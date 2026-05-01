@@ -9,9 +9,6 @@ const labelVariants = cva(
 export interface LabelProps
   extends React.ComponentProps<'label'>, VariantProps<typeof labelVariants> {}
 
-export interface LabelProps
-  extends React.ComponentProps<'label'>, VariantProps<typeof labelVariants> {}
-
 export const Label = ({ className, ref, ...props }: LabelProps) => {
   return (
     <label ref={ref} className={cn(labelVariants(), className)} {...props} />

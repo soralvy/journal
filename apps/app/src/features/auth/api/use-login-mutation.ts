@@ -19,18 +19,18 @@ export const useLoginMutation = (options?: UseLoginOptions) => {
     onSuccess: (data) => {
       queryClient.setQueryData(queryKeys.auth.session(), data);
 
-      queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
 
       options?.onSuccess?.();
     },
 
     onError: (error) => {
       if (error instanceof AppNetworkError) {
-        if (error.statusCode && error.statusCode >= 500) {
+        if (error.statusCode !== undefined && error.statusCode >= 500) {
           toast.error(
             'The server is currently unavailable. Please try again later.',
           );
-        } else if (!error.statusCode) {
+        } else if (error.statusCode === undefined) {
           toast.error('Network error. Please check your internet connection.');
         }
       }

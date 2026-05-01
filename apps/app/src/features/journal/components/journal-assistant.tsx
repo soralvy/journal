@@ -30,7 +30,9 @@ export const JournalAssistant = ({
       });
     });
 
-    return () => { globalThis.cancelAnimationFrame(animationFrame); };
+    return () => {
+      globalThis.cancelAnimationFrame(animationFrame);
+    };
   }, [isOpen]);
 
   return (
@@ -68,7 +70,7 @@ export const JournalAssistant = ({
             <AssistantMessage
               author={message.author}
               text={message.text}
-              key={`${message.author}-${index}`}
+              key={`${message.author}-${String(index)}`}
             />
           ))}
         </div>
@@ -108,4 +110,4 @@ export const JournalAssistant = ({
       </Button>
     </div>
   );
-}
+};
