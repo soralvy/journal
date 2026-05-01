@@ -67,7 +67,6 @@
 - Visual-only or unavailable controls must be disabled or clearly non-interactive.
 - Test user-visible behavior rather than implementation details.
 
-
 ## Backend Conventions
 
 - Follow existing Nest module/controller/service structure.
@@ -84,6 +83,13 @@
 - Never use destructive migration/reset commands without explicit approval.
 - Do not edit applied migration files unless the user explicitly asks.
 - Consider backfills/expand-contract for non-null columns and renames.
+
+## Generated API Client
+
+- Do not manually edit files under `src/lib/api-client/generated`.
+- Update backend DTO/OpenAPI first.
+- Run `yarn workspace app api:generate`.
+- Commit generated changes together with backend contract changes.
 
 ## Zod Conventions
 
