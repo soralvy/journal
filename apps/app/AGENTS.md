@@ -20,6 +20,7 @@ This is the Vite React + TypeScript app using TanStack Router and Tailwind CSS.
 ## React Refactor Rules
 
 Before refactoring a large component, identify:
+
 - mixed responsibilities
 - state ownership
 - data ownership
@@ -30,18 +31,32 @@ Before refactoring a large component, identify:
 - test coverage gaps
 
 Prefer:
+
 - container/page + presentational components
 - controlled component APIs
 - small custom hooks for local reusable behavior
 - pure helpers for testable derived logic
 
 Avoid:
+
 - large rewrites
 - premature shared abstractions
 - unnecessary compound components
 - unnecessary context/reducers
 - importing mock data inside reusable UI components
 - changing behavior during readability-only refactors
+
+## React component style
+
+- Use arrow functions for React components.
+- Prefer named exported const components:
+
+```tsx
+export const JournalPage = () => {
+  return <main />;
+};
+```
+Do not use function declarations for React components unless there is a specific reason.
 
 ## State And Data Ownership
 
@@ -71,9 +86,63 @@ Use the lightest reliable test level.
 - Do not use ad-hoc Chrome DevTools WebSocket scripts.
 
 For UI refactors, verify:
+
 - route renders
 - main interactions still work
 - controlled inputs update visible output
 - hidden panels are not keyboard-focusable
 - mobile smoke behavior still works
 - typecheck/lint/build pass
+
+```
+
+## Strict boolean expressions
+
+This repo uses strict boolean expressions.
+
+Do not write implicit truthy/falsy checks.
+
+Prefer:
+- `value !== undefined`
+- `value !== null`
+- `value.length > 0`
+- `Boolean explicit variables only when the type is already boolean`
+
+Avoid:
+- `if (value)`
+- `condition && <Component />` when condition is string/number/object/nullish
+- `foo || fallback` when `foo ?? fallback` is intended
+```
+
+## Lint style
+
+This app uses strict typed ESLint.
+
+React components:
+- Use arrow function components.
+- Prefer `export const ComponentName = (...) => { ... }`.
+
+Strict boolean rules:
+- Do not rely on truthy/falsy checks.
+- Use explicit checks:
+  - `value !== undefined`
+  - `value !== null`
+  - `value.length > 0`
+  - `array.length > 0`
+  - `typeof value === 'string'`
+- Use `??` instead of `||` when providing fallbacks for nullable values.
+- Do not use non-null assertions. Narrow values explicitly.
+
+Promises:
+- Await promises.
+- If intentionally fire-and-forget, prefix with `void`.
+- Event handlers that call async functions should handle errors.
+
+Testing:
+- Use Vitest + Testing Library.
+- Tests must typecheck.
+- Use `@testing-library/jest-dom/vitest` setup.
+- Do not add tests that require disabling type safety unless there is a clear reason.
+
+Generated files:
+- Do not edit `routeTree.gen.ts`.

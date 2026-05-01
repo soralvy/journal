@@ -11,7 +11,24 @@ import tseslint from 'typescript-eslint';
 import eslintConfigPrettier from 'eslint-config-prettier';
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', '.tmp'] },
+  {
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      '.tmp/**',
+      'coverage/**',
+      'playwright-report/**',
+      'test-results/**',
+      'src/routeTree.gen.ts',
+    ],
+  },
+  {
+    files: ['src/routes/**/*.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -19,8 +36,8 @@ export default tseslint.config(
       ...tseslint.configs.strictTypeChecked,
       ...tseslint.configs.stylisticTypeChecked,
       react.configs.flat.recommended,
-      react.configs.flat['jsx-runtime'], 
-      jsxA11y.flatConfigs.strict, 
+      react.configs.flat['jsx-runtime'],
+      jsxA11y.flatConfigs.strict,
       unicorn.configs.recommended,
       sonarjs.configs.recommended,
       eslintConfigPrettier,
@@ -48,26 +65,27 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      
+
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },
       ],
+      'sonarjs/todo-tag': 'warn',
       'simple-import-sort/imports': 'error',
       'simple-import-sort/exports': 'error',
-      
+
       '@typescript-eslint/consistent-type-imports': [
         'error',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
-      
+
       '@typescript-eslint/no-explicit-any': 'error',
-      
+
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
-      
+
       '@typescript-eslint/strict-boolean-expressions': [
         'error',
         {
@@ -79,7 +97,7 @@ export default tseslint.config(
 
       '@typescript-eslint/no-floating-promises': 'error',
 
-      'react/prop-types': 'off', 
+      'react/prop-types': 'off',
       'react/jsx-no-useless-fragment': 'error',
       'react/function-component-definition': [
         'error',
@@ -89,8 +107,8 @@ export default tseslint.config(
         },
       ],
 
-      'unicorn/prevent-abbreviations': 'off', 
-      'unicorn/no-null': 'off', 
+      'unicorn/prevent-abbreviations': 'off',
+      'unicorn/no-null': 'off',
     },
-  }
+  },
 );
