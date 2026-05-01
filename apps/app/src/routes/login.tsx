@@ -1,11 +1,42 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { LoginForm } from '../features/auth';
+import z from 'zod';
+import { useEffect } from 'react';
+import { toast } from 'sonner';
+
+const loginSearchSchema = z.object({
+  error: z.string().optional(),
+});
 
 export const Route = createFileRoute('/login')({
   component: RouteComponent,
+  validateSearch: loginSearchSchema,
 });
 
 function RouteComponent() {
+  const { error } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.id });
+
+  useEffect(() => {
+    if (!error) return;
+
+    if (error === 'EXPIRED_TOKEN') {
+      toast.error('Your magic link expired. Please request a new one.', { 
+        id: 'expired-token' 
+      });
+    } else {
+      toast.error('Authentication failed. Please try again.', { 
+        id: 'auth-error' 
+      });
+    }
+
+    navigate({
+      search: {}, 
+      replace: true, 
+    });
+    
+  }, [error, navigate]);
+  
   return (
     <main className="bg-stoic-background relative flex min-h-screen items-center justify-between">
       <section className="flex min-h-screen w-1/2 flex-col justify-between p-12">

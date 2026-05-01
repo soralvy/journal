@@ -1,4 +1,7 @@
+import { ServerResponse } from 'node:http';
+
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core/helpers/http-adapter-host';
 import { Prisma } from '@repo/database';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { ZodSerializationException, ZodValidationException } from 'nestjs-zod';
@@ -12,39 +15,99 @@ interface ErrorResponse {
   message: string | string[];
   error: string;
   requestId: string;
+  fieldErrors?: Record<string, string>;
 }
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
+  constructor(private readonly httpAdapterHost: HttpAdapterHost) {}
+
   catch(exception: unknown, host: ArgumentsHost) {
+    const { httpAdapter } = this.httpAdapterHost;
     const ctx = host.switchToHttp();
-    const response = ctx.getResponse<FastifyReply>();
+
+    const response = ctx.getResponse<FastifyReply | ServerResponse>();
     const request = ctx.getRequest<FastifyRequest>();
 
-    const { status, message, error } = this.getErrorDetails(exception);
+    const { status, message, error, fieldErrors } = this.getErrorDetails(exception);
 
     const errorResponse: ErrorResponse = {
       statusCode: status,
       timestamp: new Date().toISOString(),
-      path: request.url,
-      method: request.method,
+      path: request?.url || 'unknown',
+      method: request?.method || 'unknown',
       message,
       error,
-      requestId: request.id || `internal-${Date.now()}`,
+      requestId: request?.id || `internal-${Date.now()}`,
+      fieldErrors,
     };
 
     this.logError(exception, errorResponse);
 
-    response.status(status).send(errorResponse);
+    if (this.isHeadersSent(response)) {
+      this.logger.warn('Headers already sent, skipping error response logic.');
+      return;
+    }
+
+    // standard fastify reply
+    if ('status' in response && typeof response.status === 'function') {
+      response.status(status).send(errorResponse);
+      return;
+    }
+
+    // raw node.js response (fallback for middleware errors)
+    if (response instanceof ServerResponse) {
+      response.statusCode = status;
+      response.setHeader('Content-Type', 'application/json');
+
+      const origin = request.headers.origin || request.headers.host || '*';
+      response.setHeader('Access-Control-Allow-Origin', origin);
+      response.setHeader('Access-Control-Allow-Credentials', 'true');
+      response.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+
+      response.end(JSON.stringify(errorResponse));
+      return;
+    }
+
+    try {
+      httpAdapter.reply(response, errorResponse, status);
+    } catch (adapterError) {
+      this.logger.error('Failed to send error response via adapter', adapterError);
+    }
+  }
+
+  private isHeadersSent(response: FastifyReply | ServerResponse): boolean {
+    if ('sent' in response) return response.sent; // fastify
+    if ('headersSent' in response) return response.headersSent; // node
+    return false;
   }
 
   private getErrorDetails(exception: unknown): {
     status: number;
     message: string | string[];
     error: string;
+    fieldErrors?: Record<string, string>;
   } {
+    if (exception instanceof ZodValidationException) {
+      return this.handleZodError(exception.getZodError());
+    }
+
+    if (exception instanceof ZodSerializationException) {
+      const possibleError = exception.getZodError();
+      if (possibleError instanceof ZodError) {
+        this.logger.error(`Serialization Safety Fail: ${JSON.stringify(possibleError.issues)}`);
+      }
+      return {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Internal server error',
+        error: 'Internal Server Error',
+      };
+    }
+    if (exception instanceof ZodError) {
+      return this.handleZodError(exception);
+    }
     if (exception instanceof HttpException) {
       const response = exception.getResponse();
       const status = exception.getStatus();
@@ -74,26 +137,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       };
     }
 
-    if (exception instanceof ZodValidationException) {
-      return this.handleZodError(exception.getZodError());
-    }
-
-    if (exception instanceof ZodSerializationException) {
-      const possibleError = exception.getZodError();
-      if (possibleError instanceof ZodError) {
-        this.logger.error(`Serialization Safety Fail: ${JSON.stringify(possibleError.issues)}`);
-      }
-      return {
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Internal server error',
-        error: 'Internal Server Error',
-      };
-    }
-
-    if (exception instanceof ZodError) {
-      return this.handleZodError(exception);
-    }
-
     return {
       status: HttpStatus.INTERNAL_SERVER_ERROR,
       message: 'Internal server error',
@@ -101,26 +144,36 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     };
   }
 
-  private handleZodError(errorCandidate: unknown): { status: number; message: string[]; error: string } {
+  private handleZodError(errorCandidate: unknown): {
+    status: number;
+    message: string;
+    error: string;
+    fieldErrors?: Record<string, string>;
+  } {
     if (errorCandidate instanceof ZodError) {
       return {
         status: HttpStatus.BAD_REQUEST,
-        message: this.formatZodIssues(errorCandidate),
+        message: 'Validation failed',
         error: 'Validation Error',
+        fieldErrors: this.formatZodFieldErrors(errorCandidate),
       };
     }
     return {
       status: HttpStatus.BAD_REQUEST,
-      message: ['Invalid request data'],
+      message: 'Invalid request data',
       error: 'Validation Error',
     };
   }
 
-  private formatZodIssues(zodError: ZodError): string[] {
-    return zodError.issues.map((err) => {
-      const path = err.path.join('.');
-      return path ? `${path}: ${err.message}` : err.message;
-    });
+  private formatZodFieldErrors(zodError: ZodError): Record<string, string> {
+    const errors: Record<string, string> = {};
+    for (const err of zodError.issues) {
+      const path = err.path.join('.') || 'root';
+      if (!errors[path]) {
+        errors[path] = err.message;
+      }
+    }
+    return errors;
   }
 
   private handlePrismaError(exception: Prisma.PrismaClientKnownRequestError): {

@@ -4,8 +4,10 @@ import { APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 
+import { AuthModule } from './app/auth/auth.module';
 import { PrismaModule } from './app/prisma/prisma.module';
 import { UserModule } from './app/user/user.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -22,6 +24,7 @@ import { UserModule } from './app/user/user.module';
       forRoutes: [{ path: '(.*)', method: RequestMethod.ALL }],
     }),
     UserModule,
+    AuthModule,
   ],
   providers: [
     {
