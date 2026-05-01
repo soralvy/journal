@@ -1,12 +1,11 @@
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Button, FormInput } from '../../shared/ui';
-import { useLoginMutation } from './api/use-login-mutation';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
+import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { Form } from '../../shared/ui/form/form';
+import { z } from 'zod';
 import { authClient } from '../../lib/api-client';
+import { Button, FormInput } from '../../shared/ui';
+import { Form } from '../../shared/ui/form/form';
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
@@ -16,8 +15,6 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export const LoginForm = () => {
-  const navigate = useNavigate();
-
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     mode: 'onTouched',
