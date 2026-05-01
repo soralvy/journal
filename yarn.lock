@@ -11310,6 +11310,7 @@ __metadata:
     "@types/node": "npm:^25.6.0"
     dotenv-cli: "npm:^11.0.0"
     prettier: "npm:^3.7.4"
+    ts-api-utils: "npm:^2.5.0"
     turbo: "npm:^2.7.5"
     typescript: "npm:5.9.2"
   languageName: unknown
@@ -15206,7 +15207,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ts-api-utils@npm:^2.4.0":
+"ts-api-utils@npm:^2.4.0, ts-api-utils@npm:^2.5.0":
   version: 2.5.0
   resolution: "ts-api-utils@npm:2.5.0"
   peerDependencies:

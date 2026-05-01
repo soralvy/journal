@@ -9,10 +9,7 @@ import {
 import { ZodSerializerDto } from 'nestjs-zod';
 
 import { CreateJournalDto } from './dto/create-journal.dto';
-import {
-  JournalApiErrorResponseDto,
-  JournalValidationErrorResponseDto,
-} from './dto/journal-error-response.dto';
+import { JournalApiErrorResponseDto, JournalValidationErrorResponseDto } from './dto/journal-error-response.dto';
 import { JournalResponseDto } from './dto/journal-response.dto';
 import { JournalService } from './journal.service';
 
