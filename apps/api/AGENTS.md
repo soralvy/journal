@@ -33,6 +33,8 @@ For every create/update endpoint:
 - Do not rely on TypeScript types alone for runtime validation.
 - Do not duplicate equivalent request validation logic in multiple places.
 - Keep request DTO names explicit.
+- DTO class names are part of generated client readability; avoid generic names like `BodyDto`.
+- Document request body examples only when they clarify edge cases or expected shape.
 
 Examples:
 
@@ -50,6 +52,8 @@ For every public endpoint:
 - Response DTOs should include only fields that are intentionally public.
 - Map database results to response DTOs when needed.
 - Keep response names explicit.
+- Treat date/time fields as serialized API strings in the public contract, even if the service receives `Date` objects internally.
+- Prefer one response DTO per stable public shape; do not reuse a database-oriented class just because the fields currently match.
 
 Examples:
 
@@ -64,6 +68,7 @@ Every endpoint intended for frontend use should have high-quality OpenAPI metada
 For each endpoint, include:
 
 - `@ApiTags(...)`
+- `@ApiOperation(...)` when the generated operation name would otherwise be unclear.
 - An explicit success response:
   - `@ApiOkResponse({ type: ... })`
   - `@ApiCreatedResponse({ type: ... })`
@@ -76,6 +81,7 @@ For each endpoint, include:
 - Stable operation names if configured or needed for code generation.
 - Request body DTOs that OpenAPI can understand.
 - Response DTOs that OpenAPI can understand.
+- Error DTOs that match the global exception filter output.
 
 Do not depend on ambiguous inferred schemas when code generation quality matters.
 
@@ -87,12 +93,23 @@ Recommended baseline:
 
 ```ts
 type ApiErrorResponse = {
+  statusCode: number;
+  timestamp: string;
+  path: string;
+  method: string;
   message: string;
-  code?: string;
+  error: string;
+  requestId: string;
 };
 
 type ApiValidationErrorResponse = {
+  statusCode: number;
+  timestamp: string;
+  path: string;
+  method: string;
   message: string;
+  error: string;
+  requestId: string;
   fieldErrors: Record<string, string>;
 };
 ```
@@ -111,6 +128,8 @@ When using Zod DTOs:
 - Ensure the global Zod validation pipe is configured.
 - Ensure OpenAPI generation correctly understands Zod DTOs.
 - Be careful with transforms like `.trim()` because they change input values at runtime.
+- Do not rely on TypeScript-only DTO fields for Zod-backed request validation.
+- If a Zod DTO is used in OpenAPI, verify the generated schema includes required fields, formats, min/max constraints, and examples where needed.
 
 ## Prisma Rules
 
@@ -132,11 +151,14 @@ Checklist:
 - HTTP method is correct.
 - Request DTO is explicit.
 - Response DTO is explicit.
+- Date/time, nullable, optional, and enum fields are accurately represented.
 - Error responses are documented.
 - OpenAPI schema is accurate.
 - Operation name is stable if codegen uses it.
 - No raw internal implementation type leaks into OpenAPI.
 - Generated frontend client should not require manual schema duplication.
+- Validation error shape is documented.
+- Auth requirements are documented.
 
 ## Review Checklist For New Endpoints
 
