@@ -3,7 +3,6 @@ import { paginate } from 'src/common/helpers/pagination';
 import { PaginationDto } from 'src/common/validation';
 
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateUserDto } from './dto/create-user.dto';
 
 @Injectable()
 export class UserService {

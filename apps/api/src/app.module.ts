@@ -5,9 +5,9 @@ import { LoggerModule } from 'nestjs-pino';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 
 import { AuthModule } from './app/auth/auth.module';
+import { JournalModule } from './app/journal/journal.module';
 import { PrismaModule } from './app/prisma/prisma.module';
 import { UserModule } from './app/user/user.module';
-import { JournalModule } from './app/journal/journal.module';
 
 @Module({
   imports: [
