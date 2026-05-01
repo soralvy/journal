@@ -3860,6 +3860,7 @@ __metadata:
     "@prisma/client": "npm:^6.0.0"
     dotenv-cli: "npm:^11.0.0"
     prisma: "npm:^6.0.0"
+    tsx: "npm:^4.21.0"
     typescript: "npm:^5.7.3"
   languageName: unknown
   linkType: soft
@@ -13424,7 +13425,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tsx@npm:^4.19.2":
+"tsx@npm:^4.19.2, tsx@npm:^4.21.0":
   version: 4.21.0
   resolution: "tsx@npm:4.21.0"
   dependencies:
