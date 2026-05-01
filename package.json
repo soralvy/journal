@@ -4,9 +4,11 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:local": "yarn db:up && yarn db:apply && yarn dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
+    "db:up": "docker compose -f apps/api/docker-compose.postgres.yml up -d --wait",
     "db:migrate": "yarn workspace @repo/database db:migrate",
     "db:generate": "yarn workspace @repo/database db:generate",
     "db:apply": "yarn workspace @repo/database db:apply"
