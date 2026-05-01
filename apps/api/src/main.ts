@@ -10,6 +10,7 @@ import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
+import { cleanupOpenApiDoc } from 'nestjs-zod';
 
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters';
@@ -46,7 +47,7 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   const config = new DocumentBuilder().setTitle('Journal app').setVersion('1.0').addTag('journal').build();
-  const documentFactory = () => SwaggerModule.createDocument(app, config);
+  const documentFactory = () => cleanupOpenApiDoc(SwaggerModule.createDocument(app, config));
   SwaggerModule.setup('docs', app, documentFactory);
 
   const port = process.env.PORT || 3000;
