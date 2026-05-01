@@ -1,21 +1,26 @@
+import { authAdditionalFields } from '@repo/auth-contracts';
+import {
+  inferAdditionalFields,
+  magicLinkClient,
+} from 'better-auth/client/plugins';
+import { createAuthClient } from 'better-auth/react';
 import type { ZodSchema } from 'zod';
+
 import {
   AppDataParseError,
   AppNetworkError,
   AppValidationError,
 } from '../errors';
-import { createAuthClient } from 'better-auth/react';
-import {
-  inferAdditionalFields,
-  magicLinkClient,
-} from 'better-auth/client/plugins';
-import type { Auth } from '../../../../api/src/app/auth/auth.configuration';
+
 const DEFAULT_ERROR_MESSAGE = 'An unexpected error occurred';
 
 export const authClient = createAuthClient({
   baseURL:
     import.meta.env['VITE_DEV_SERVER_BASE_URL'] || 'http://localhost:3000',
-  plugins: [magicLinkClient(), inferAdditionalFields<Auth>()],
+  plugins: [
+    magicLinkClient(),
+    inferAdditionalFields({ user: authAdditionalFields }),
+  ],
 });
 
 export const apiClient = async <T>(
