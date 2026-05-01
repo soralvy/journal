@@ -1,4 +1,5 @@
 import { All, Controller, Req, Res, VERSION_NEUTRAL } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import { toNodeHandler } from 'better-auth/node';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
@@ -9,6 +10,7 @@ import { AuthService } from './auth.service';
   path: 'auth',
   version: VERSION_NEUTRAL,
 })
+@ApiExcludeController()
 export class AuthController {
   private readonly authHandler = toNodeHandler(auth);
 

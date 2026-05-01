@@ -1,4 +1,5 @@
 import { Navigate, Outlet } from '@tanstack/react-router';
+
 import { useCurrentUser } from '../features/auth';
 
 export const AuthenticatedLayout = () => {

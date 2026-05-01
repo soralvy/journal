@@ -1,8 +1,9 @@
 import {
+  type FieldValues,
   FormProvider,
   type UseFormReturn,
-  type FieldValues,
 } from 'react-hook-form';
+
 import { cn, handleServerFormError } from '../../../lib/utils';
 
 interface FormProps<T extends FieldValues> extends Omit<
@@ -31,7 +32,13 @@ export const Form = <T extends FieldValues>({
 
   return (
     <FormProvider {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} noValidate {...props}>
+      <form
+        onSubmit={(event) => {
+          void form.handleSubmit(handleSubmit)(event);
+        }}
+        noValidate
+        {...props}
+      >
         <fieldset
           disabled={form.formState.isSubmitting}
           className={cn(

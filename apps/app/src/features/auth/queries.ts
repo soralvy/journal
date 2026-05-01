@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { queryKeys } from '../../lib/queries';
+
 import { apiClient } from '../../lib/api-client';
-import { UserProfileSchema, type UserProfile } from './schemas/auth.schema';
+import { queryKeys } from '../../lib/queries';
+import { type UserProfile,UserProfileSchema } from './schemas/auth.schema';
 
 export const useCurrentUser = () => {
   return useQuery({

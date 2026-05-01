@@ -1,19 +1,28 @@
 {
   "name": "journal",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
     "dev:local": "yarn db:up && yarn db:apply && yarn dev",
+    "api:generate": "yarn workspace app api:generate",
+    "api:generate:strict": "yarn workspace app api:generate:strict",
+    "api:generate:watch": "yarn workspace app api:generate:watch",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
     "db:up": "docker compose -f apps/api/docker-compose.postgres.yml up -d --wait",
     "db:migrate": "yarn workspace @repo/database db:migrate",
     "db:generate": "yarn workspace @repo/database db:generate",
-    "db:apply": "yarn workspace @repo/database db:apply"
+    "db:apply": "yarn workspace @repo/database db:apply",
+    "db:seed": "yarn workspace @repo/database db:seed",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "quality": "yarn check-types && yarn lint && yarn test && yarn build"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
     "dotenv-cli": "^11.0.0",
     "prettier": "^3.7.4",
     "turbo": "^2.7.5",

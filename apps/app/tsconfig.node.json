@@ -33,6 +33,7 @@
     "tailwind.config.ts",
     "postcss.config.ts",
     "vitest.config.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "orval.config.ts"
   ]
 }

@@ -1,13 +1,13 @@
+import { CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { useId, useState } from 'react';
 import {
-  useController,
   type FieldPath,
   type FieldValues,
+  useController,
 } from 'react-hook-form';
+
 import { Input } from '../input/input';
 import { Label } from '../label/label';
-
-import { CheckCircle2, Eye, EyeOff } from 'lucide-react';
 
 export interface FormInputProps<T extends FieldValues> extends Omit<
   React.ComponentProps<'input'>,
@@ -20,6 +20,83 @@ export interface FormInputProps<T extends FieldValues> extends Omit<
   rightLabelSlot?: React.ReactNode;
   showSuccessIndicator?: boolean;
 }
+
+interface PasswordToggleButtonProps {
+  onToggle: () => void;
+  showPassword: boolean;
+}
+
+interface EndIconOptions {
+  hasErrorMessage: boolean;
+  invalid: boolean;
+  isDirty: boolean;
+  isPassword: boolean;
+  onTogglePassword: () => void;
+  shouldShowSuccessIndicator: boolean;
+  showPassword: boolean;
+}
+
+const getDescribedBy = (
+  hintId: string,
+  errorId: string,
+  hasHint: boolean,
+  hasErrorMessage: boolean,
+) => {
+  return [hasHint ? hintId : null, hasErrorMessage ? errorId : null]
+    .filter((item): item is string => item !== null)
+    .join(' ');
+};
+
+const PasswordToggleButton = ({
+  onToggle,
+  showPassword,
+}: PasswordToggleButtonProps) => {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="hover:text-primary rounded-sm transition-colors focus-visible:outline-none"
+      aria-label={showPassword ? 'Hide password' : 'Show password'}
+    >
+      {showPassword ? (
+        <EyeOff className="h-5 w-5" />
+      ) : (
+        <Eye className="h-5 w-5" />
+      )}
+    </button>
+  );
+};
+
+const getEndIconState = ({
+  hasErrorMessage,
+  invalid,
+  isDirty,
+  isPassword,
+  onTogglePassword,
+  shouldShowSuccessIndicator,
+  showPassword,
+}: EndIconOptions): { node: React.ReactNode } => {
+  if (isPassword) {
+    return {
+      node: (
+        <PasswordToggleButton
+          onToggle={onTogglePassword}
+          showPassword={showPassword}
+        />
+      ),
+    };
+  }
+
+  if (shouldShowSuccessIndicator && isDirty && !invalid && !hasErrorMessage) {
+    return {
+      node: (
+        <CheckCircle2 className="h-5 w-5 text-green-500" aria-hidden="true" />
+      ),
+    };
+  }
+
+  return { node: null };
+};
 
 export const FormInput = <T extends FieldValues>({
   label,
@@ -41,52 +118,55 @@ export const FormInput = <T extends FieldValues>({
   } = useController({ name });
 
   const isPassword = type === 'password';
-  const currentType = isPassword ? (showPassword ? 'text' : 'password') : type;
+  const passwordInputType = showPassword ? 'text' : 'password';
+  const currentType = isPassword ? passwordInputType : type;
 
   const errorMessage = error?.message;
+  const hasClassName = className !== undefined && className !== '';
+  const hasHint = hint !== undefined && hint !== '';
+  const hasErrorMessage = errorMessage !== undefined && errorMessage !== '';
+  const hasRightLabelSlot =
+    rightLabelSlot !== undefined && rightLabelSlot !== null;
+  const isRequiredField = isRequired === true;
+  const shouldShowSuccessIndicator = showSuccessIndicator === true;
 
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
-  const describedBy =
-    [hint ? hintId : null, errorMessage ? errorId : null]
-      .filter(Boolean)
-      .join(' ') || undefined;
-
-  let endIcon = null;
-  if (isPassword) {
-    endIcon = (
-      <button
-        type="button"
-        onClick={() => setShowPassword(!showPassword)}
-        className="hover:text-primary rounded-sm transition-colors focus-visible:outline-none"
-        aria-label={showPassword ? 'Hide password' : 'Show password'}
-      >
-        {showPassword ? (
-          <EyeOff className="h-5 w-5" />
-        ) : (
-          <Eye className="h-5 w-5" />
-        )}
-      </button>
-    );
-  } else if (showSuccessIndicator && isDirty && !invalid && !errorMessage) {
-    endIcon = (
-      <CheckCircle2 className="h-5 w-5 text-green-500" aria-hidden="true" />
-    );
-  }
+  const describedByValue = getDescribedBy(
+    hintId,
+    errorId,
+    hasHint,
+    hasErrorMessage,
+  );
+  const describedBy = describedByValue === '' ? undefined : describedByValue;
+  const endIcon = getEndIconState({
+    hasErrorMessage,
+    invalid,
+    isDirty,
+    isPassword,
+    onTogglePassword: () => {
+      setShowPassword(!showPassword);
+    },
+    shouldShowSuccessIndicator,
+    showPassword,
+  }).node;
 
   return (
-    <div className={`flex flex-col gap-2 ${className || ''}`}>
+    <div className={`flex flex-col gap-2 ${hasClassName ? className : ''}`}>
       <div className="flex items-center justify-between">
-        <Label htmlFor={id} className={errorMessage ? 'text-destructive' : ''}>
+        <Label
+          htmlFor={id}
+          className={hasErrorMessage ? 'text-destructive' : ''}
+        >
           {label}
-          {isRequired && (
+          {isRequiredField && (
             <span className="text-destructive ml-1" aria-hidden="true">
               *
             </span>
           )}
         </Label>
 
-        {rightLabelSlot && (
+        {hasRightLabelSlot && (
           <div className="text-sm font-medium">{rightLabelSlot}</div>
         )}
       </div>
@@ -94,7 +174,7 @@ export const FormInput = <T extends FieldValues>({
       <Input
         id={id}
         type={currentType}
-        hasError={!!errorMessage}
+        hasError={hasErrorMessage}
         endIcon={endIcon}
         aria-describedby={describedBy}
         aria-required={isRequired}
@@ -102,13 +182,13 @@ export const FormInput = <T extends FieldValues>({
         {...props}
       />
 
-      {hint && !errorMessage && (
+      {hasHint && !hasErrorMessage && (
         <p id={hintId} className="text-muted-foreground text-sm">
           {hint}
         </p>
       )}
 
-      {errorMessage && (
+      {hasErrorMessage && (
         <p
           id={errorId}
           className="text-destructive text-sm font-medium"

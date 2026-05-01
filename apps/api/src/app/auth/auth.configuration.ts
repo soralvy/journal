@@ -1,3 +1,4 @@
+import { authAdditionalFields } from '@repo/auth-contracts';
 import { PrismaClient } from '@repo/database';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
@@ -16,11 +17,7 @@ export const auth = betterAuth({
     },
   },
   user: {
-    additionalFields: {
-      username: { type: 'string', required: false },
-      role: { type: 'string', required: true, defaultValue: 'USER' },
-      deletedAt: { type: 'date', required: false },
-    },
+    additionalFields: authAdditionalFields,
   },
   database: prismaAdapter(prisma, {
     provider: 'postgresql',

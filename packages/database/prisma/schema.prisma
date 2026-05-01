@@ -16,11 +16,13 @@ model User {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
   deletedAt     DateTime? @map("deleted_at")
+  
   name          String
   emailVerified Boolean   @default(false)
   image         String?
   sessions      Session[]
   accounts      Account[]
+  journalEntries JournalEntry[] 
 
   @@map("user")
 }
@@ -76,4 +78,17 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model JournalEntry {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("journal_entry")
 }

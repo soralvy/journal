@@ -1,8 +1,8 @@
 import { apiClient } from '../../../lib/api-client';
 import {
-  userSessionSchema,
   type LoginFormValues,
   type UserSession,
+  userSessionSchema,
 } from '../schemas/auth.schema';
 
 export const authApi = {

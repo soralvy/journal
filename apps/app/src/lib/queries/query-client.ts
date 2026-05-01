@@ -1,11 +1,12 @@
-import { QueryClient, QueryCache, MutationCache } from '@tanstack/react-query';
+import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import {
-  AppValidationError,
-  AppNetworkError,
-  AppDataParseError,
-} from '../errors';
+
 import { router } from '../../main';
+import {
+  AppDataParseError,
+  AppNetworkError,
+  AppValidationError,
+} from '../errors';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -16,7 +17,7 @@ export const queryClient = new QueryClient({
         if (error instanceof AppValidationError) return false;
         if (
           error instanceof AppNetworkError &&
-          error.statusCode &&
+          error.statusCode !== undefined &&
           error.statusCode < 500
         )
           return false;
@@ -55,13 +56,13 @@ const handleGlobalError = (error: unknown, queryKey?: readonly unknown[]) => {
 
       queryClient.clear();
 
-      router.navigate({ to: '/login', replace: true });
-    } else if (error.statusCode && error.statusCode >= 500) {
+      void router.navigate({ to: '/login', replace: true });
+    } else if (error.statusCode !== undefined && error.statusCode >= 500) {
       toast.error(
         'The server encountered an error. Our team has been notified.',
         { id: 'server-error' },
       );
-    } else if (!error.statusCode) {
+    } else if (error.statusCode === undefined) {
       toast.error('Network error. Please check your internet connection.', {
         id: 'network-error',
       });
@@ -70,7 +71,9 @@ const handleGlobalError = (error: unknown, queryKey?: readonly unknown[]) => {
     toast.error('Data synchronization error. Please refresh the page.', {
       id: 'parse-error',
     });
-    console.error(`Schema mismatch on query ${queryKey}:`, error.issues);
+    const queryKeyLabel =
+      queryKey === undefined ? 'unknown' : JSON.stringify(queryKey);
+    console.error(`Schema mismatch on query ${queryKeyLabel}:`, error.issues);
   } else {
     toast.error('An unexpected error occurred.', { id: 'unknown-error' });
   }
