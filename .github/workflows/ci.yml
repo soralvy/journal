@@ -22,6 +22,8 @@ jobs:
 
       - run: yarn install --immutable
 
+      - run: yarn db:generate
+
       - run: yarn check-types
 
       - run: yarn lint

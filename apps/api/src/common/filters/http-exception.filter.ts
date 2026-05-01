@@ -18,6 +18,10 @@ interface ErrorResponse {
   fieldErrors?: Record<string, string>;
 }
 
+const isStringArray = (value: unknown): value is string[] => {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+};
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
@@ -184,8 +188,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     switch (exception.code) {
       case 'P2002': {
         const isDev = process.env.NODE_ENV === 'development';
-        const target = (exception.meta?.target as string[]) || [];
-        const fields = Array.isArray(target) ? target.join(', ') : target;
+        const target = exception.meta?.target;
+        const fields = isStringArray(target) ? target.join(', ') : 'unknown';
 
         return {
           status: HttpStatus.CONFLICT,
