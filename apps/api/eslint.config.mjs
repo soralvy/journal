@@ -65,6 +65,11 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
+
+      // TypeScript strict null checks and type narrowing already cover this
+      // class of issue. sonarjs/null-dereference false-positives on readable
+      // guarded TypeScript code, so prefer type-honest code over lint-gaming.
+      'sonarjs/null-dereference': 'off',
       
       'unicorn/no-null': 'off', 
       'unicorn/prevent-abbreviations': 'off', 
