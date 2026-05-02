@@ -7,14 +7,14 @@ export const JournalSidebar = () => {
     <aside className="border-stoic-black/10 hidden w-72 shrink-0 flex-col border-r bg-[#f2f2f2] px-6 py-6 lg:flex">
       <div className="pb-10">
         <h1 className="font-heading text-2xl font-semibold">Aura</h1>
-        <p className="text-secondary mt-1 text-[10px] tracking-[0.1em] uppercase">
+        <p className="text-secondary mt-1 text-[10px] tracking-widest uppercase">
           Stoic Companion
         </p>
       </div>
 
       <nav className="flex flex-1 flex-col gap-8">
         <section className="flex flex-col gap-4">
-          <h2 className="text-secondary text-[10px] font-semibold tracking-[0.1em] uppercase">
+          <h2 className="text-secondary text-[10px] font-semibold tracking-widest uppercase">
             Menu
           </h2>
           <div className="flex flex-col gap-3">
@@ -36,7 +36,7 @@ export const JournalSidebar = () => {
         </section>
 
         <section className="flex flex-col gap-4">
-          <h2 className="text-secondary text-[10px] font-semibold tracking-[0.1em] uppercase">
+          <h2 className="text-secondary text-[10px] font-semibold tracking-widest uppercase">
             Recent Reflections
           </h2>
           <div className="flex flex-col gap-4">
@@ -69,4 +69,4 @@ export const JournalSidebar = () => {
       </section>
     </aside>
   );
-}
+};
