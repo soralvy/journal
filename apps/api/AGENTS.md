@@ -160,6 +160,25 @@ Checklist:
 - Validation error shape is documented.
 - Auth requirements are documented.
 
+## Internal Service Quality
+
+For internal backend services:
+
+- Keep controllers thin; services may orchestrate business logic.
+- Separate orchestration from pure domain helpers when logic becomes heuristic or non-trivial.
+- Prefer small domain-specific helper files over generic `utils.ts`.
+- Do not use file-level ESLint disables.
+- Use line-level ESLint disables only as a last resort with a concrete explanation.
+- Do not use `any`.
+- Prefer explicit return types on exported functions and public service methods.
+- Prefer domain errors inside domain/helper layers.
+- Map domain errors to HTTP exceptions at controller/API boundaries.
+- Do not put HTTP-specific exceptions into low-level helpers unless this matches an existing module pattern.
+- Keep Prisma query shapes explicit:
+  - select only required fields;
+  - filter by owner where applicable;
+  - filter soft-deleted records where applicable.
+
 ## Review Checklist For New Endpoints
 
 Before considering an endpoint done, check:
