@@ -23,15 +23,6 @@
     "quality": "yarn check-types && yarn lint && yarn test && yarn build",
     "prepare": "husky"
   },
-  "lint-staged": {
-    "*.{ts,tsx,js,jsx}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,md,yml,yaml}": [
-      "prettier --write"
-    ]
-  },
   "devDependencies": {
     "@types/node": "^25.6.0",
     "dotenv-cli": "^11.0.0",
