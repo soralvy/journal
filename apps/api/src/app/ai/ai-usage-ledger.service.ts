@@ -1,13 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import {
-  AiBudgetCheckResult,
-  AiContentRetentionStatus,
-  AiEnvironment,
-  AiFeature,
-  AiProvider,
-  AiUsageLog,
-  AiUsageLogStatus,
-} from '@repo/database';
+import type { AiEnvironment, AiUsageLog, AiUsageLogStatus, Prisma } from '@repo/database';
+import { AiBudgetCheckResult, AiContentRetentionStatus, AiFeature, AiProvider } from '@repo/database';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { AiCostEstimatorService } from './ai-cost-estimator.service';
@@ -30,6 +23,8 @@ export interface WriteAiUsageLogInput {
   contentRetentionStatus?: AiContentRetentionStatus;
 }
 
+type AiUsageLogTransactionClient = Pick<Prisma.TransactionClient, 'aiUsageLog'>;
+
 const mapProvider = (provider: AiProviderName | undefined): AiProvider | undefined => {
   if (provider === undefined) {
     return undefined;
@@ -42,6 +37,43 @@ const getTotalTokens = (usage: AiTokenUsage): number => {
   return usage.totalTokens;
 };
 
+const buildAiUsageLogCreateData = (
+  input: WriteAiUsageLogInput,
+  costEstimator: AiCostEstimatorService,
+): Prisma.AiUsageLogUncheckedCreateInput => {
+  const usage = input.usage;
+  const estimatedCostMicroUsd =
+    usage === undefined || input.provider === undefined
+      ? 0
+      : costEstimator.estimateCostMicroUsd({
+          provider: input.provider,
+          model: input.model,
+          usage,
+        });
+
+  return {
+    userId: input.userId,
+    threadId: input.threadId,
+    generationId: input.generationId,
+    environment: input.environment,
+    feature: input.feature ?? AiFeature.JOURNAL_CHAT,
+    provider: mapProvider(input.provider),
+    model: input.model,
+    promptVersion: input.promptVersion,
+    status: input.status,
+    inputTokens: usage?.inputTokens ?? 0,
+    cachedInputTokens: usage?.cachedInputTokens ?? 0,
+    outputTokens: usage?.outputTokens ?? 0,
+    reasoningTokens: usage?.reasoningTokens,
+    totalTokens: usage === undefined ? 0 : getTotalTokens(usage),
+    estimatedCostMicroUsd,
+    latencyMs: input.latencyMs,
+    budgetCheckResult: input.budgetCheckResult ?? AiBudgetCheckResult.ALLOWED,
+    refusalReason: input.refusalReason,
+    contentRetentionStatus: input.contentRetentionStatus ?? AiContentRetentionStatus.ACTIVE,
+  };
+};
+
 @Injectable()
 export class AiUsageLedgerService {
   constructor(
@@ -50,38 +82,14 @@ export class AiUsageLedgerService {
   ) {}
 
   async writeUsageLog(input: WriteAiUsageLogInput): Promise<AiUsageLog> {
-    const usage = input.usage;
-    const estimatedCostMicroUsd =
-      usage === undefined || input.provider === undefined
-        ? 0
-        : this.costEstimator.estimateCostMicroUsd({
-            provider: input.provider,
-            model: input.model,
-            usage,
-          });
-
     return this.prisma.aiUsageLog.create({
-      data: {
-        userId: input.userId,
-        threadId: input.threadId,
-        generationId: input.generationId,
-        environment: input.environment,
-        feature: input.feature ?? AiFeature.JOURNAL_CHAT,
-        provider: mapProvider(input.provider),
-        model: input.model,
-        promptVersion: input.promptVersion,
-        status: input.status,
-        inputTokens: usage?.inputTokens ?? 0,
-        cachedInputTokens: usage?.cachedInputTokens ?? 0,
-        outputTokens: usage?.outputTokens ?? 0,
-        reasoningTokens: usage?.reasoningTokens,
-        totalTokens: usage === undefined ? 0 : getTotalTokens(usage),
-        estimatedCostMicroUsd,
-        latencyMs: input.latencyMs,
-        budgetCheckResult: input.budgetCheckResult ?? AiBudgetCheckResult.ALLOWED,
-        refusalReason: input.refusalReason,
-        contentRetentionStatus: input.contentRetentionStatus ?? AiContentRetentionStatus.ACTIVE,
-      },
+      data: buildAiUsageLogCreateData(input, this.costEstimator),
+    });
+  }
+
+  async writeUsageLogInTransaction(tx: AiUsageLogTransactionClient, input: WriteAiUsageLogInput): Promise<AiUsageLog> {
+    return tx.aiUsageLog.create({
+      data: buildAiUsageLogCreateData(input, this.costEstimator),
     });
   }
 }
