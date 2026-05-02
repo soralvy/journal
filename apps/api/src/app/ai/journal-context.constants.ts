@@ -1,0 +1,7 @@
+export const DEFAULT_MAX_ENTRIES = 10;
+export const MAX_ENTRIES = 20;
+export const DEFAULT_MAX_TOTAL_CHARS = 6000;
+export const MAX_TOTAL_CHARS = 20_000;
+export const KEYWORD_CANDIDATE_MULTIPLIER = 5;
+export const MAX_KEYWORD_CANDIDATES = 100;
+export const MAX_JOURNAL_KEYWORDS = 12;
