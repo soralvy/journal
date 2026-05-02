@@ -1,9 +1,8 @@
-type AllowedModels = 'gpt-5.4-nano';
-
 export const AI_DEFAULT_MODEL = 'gpt-5.4-nano';
 export const AI_MAX_OUTPUT_TOKENS = 800;
 
 export const AI_MVP_ALLOWED_MODELS = [AI_DEFAULT_MODEL] as const;
+const AI_MVP_ALLOWED_MODEL_VALUES: ReadonlySet<string> = new Set(AI_MVP_ALLOWED_MODELS);
 
 export const AI_MVP_REASONING_POLICY = {
   deepModeEnabled: false,
@@ -23,6 +22,6 @@ export const getMvpAiModelPolicy = (): MvpAiModelPolicy => ({
   reasoning: AI_MVP_REASONING_POLICY,
 });
 
-export const isMvpAiModelAllowed = (model: AllowedModels): boolean => {
-  return AI_MVP_ALLOWED_MODELS.includes(model);
+export const isMvpAiModelAllowed = (model: string): boolean => {
+  return AI_MVP_ALLOWED_MODEL_VALUES.has(model);
 };
