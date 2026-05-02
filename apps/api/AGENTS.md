@@ -160,6 +160,21 @@ Checklist:
 - Validation error shape is documented.
 - Auth requirements are documented.
 
+## Code Quality Hierarchy
+
+When changing code, optimize in this order:
+
+1. Correctness, data safety, privacy, and security.
+2. Clear domain model and honest TypeScript types.
+3. Readability and maintainability for human reviewers.
+4. Testability and deterministic behavior.
+5. Lint/typecheck/build compliance.
+6. Formatting.
+
+Do not satisfy a lower-priority check by degrading a higher-priority quality.
+
+Lint is a verification tool, not the design goal. If a lint rule appears to conflict with readable, type-correct code, do not contort the implementation just to make lint green.
+
 ## Internal Service Quality
 
 For internal backend services:
