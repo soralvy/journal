@@ -10,7 +10,8 @@
     "api:generate:strict": "yarn workspace app api:generate:strict",
     "api:generate:watch": "yarn workspace app api:generate:watch",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,md,json,yml,yaml}\"",
     "check-types": "turbo run check-types",
     "db:up": "docker compose -f apps/api/docker-compose.postgres.yml up -d --wait",
     "db:migrate": "yarn workspace @repo/database db:migrate",
@@ -19,11 +20,23 @@
     "db:seed": "yarn workspace @repo/database db:seed",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
-    "quality": "yarn check-types && yarn lint && yarn test && yarn build"
+    "quality": "yarn check-types && yarn lint && yarn test && yarn build",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
     "dotenv-cli": "^11.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.7.4",
     "ts-api-utils": "^2.5.0",
     "turbo": "^2.7.5",

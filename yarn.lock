@@ -11198,6 +11198,8 @@ __metadata:
     "@opentelemetry/api": "npm:^1.9.0"
     "@types/node": "npm:^25.6.0"
     dotenv-cli: "npm:^11.0.0"
+    husky: "npm:^9.1.7"
+    lint-staged: "npm:^16.4.0"
     prettier: "npm:^3.7.4"
     ts-api-utils: "npm:^2.5.0"
     turbo: "npm:^2.7.5"
