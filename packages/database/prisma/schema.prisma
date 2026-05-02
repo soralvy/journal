@@ -23,6 +23,11 @@ model User {
   sessions      Session[]
   accounts      Account[]
   journalEntries JournalEntry[] 
+  aiChatThreads AiChatThread[]
+  aiChatMessages AiChatMessage[]
+  aiGenerations AiGeneration[]
+  aiJournalContextUses AiJournalContextUse[]
+  aiUsageLogs AiUsageLog[]
 
   @@map("user")
 }
@@ -89,6 +94,209 @@ model JournalEntry {
 
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiJournalContextUses AiJournalContextUse[]
 
+  @@index([userId, deletedAt, createdAt])
   @@map("journal_entry")
+}
+
+model AiChatThread {
+  id                     String                 @id @default(cuid()) @map("id")
+  userId                 String                 @map("user_id")
+  status                 AiChatThreadStatus     @default(ACTIVE) @map("status")
+  title                  String?                @map("title")
+  lastMessageAt          DateTime               @default(now()) @map("last_message_at")
+  inactivityBoundaryAt   DateTime               @map("inactivity_boundary_at")
+  contentRetentionUntil  DateTime               @map("content_retention_until")
+  deletedAt              DateTime?              @map("deleted_at")
+  contentDeletedAt       DateTime?              @map("content_deleted_at")
+  contentRetentionStatus AiContentRetentionStatus @default(ACTIVE) @map("content_retention_status")
+  createdAt              DateTime               @default(now()) @map("created_at")
+  updatedAt              DateTime               @updatedAt @map("updated_at")
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    AiChatMessage[]
+  generations AiGeneration[]
+  usageLogs   AiUsageLog[]
+
+  @@index([userId, status, lastMessageAt])
+  @@index([userId, inactivityBoundaryAt])
+  @@index([contentRetentionStatus, contentRetentionUntil], map: "idx_ai_chat_thread_retention")
+  @@map("ai_chat_thread")
+}
+
+model AiChatMessage {
+  id                     String                 @id @default(cuid()) @map("id")
+  threadId               String                 @map("thread_id")
+  userId                 String                 @map("user_id")
+  role                   AiChatMessageRole      @map("role")
+  content                String?                @map("content")
+  contentCharCount       Int                    @map("content_char_count")
+  sequence               Int                    @map("sequence")
+  contentRetentionUntil  DateTime               @map("content_retention_until")
+  contentDeletedAt       DateTime?              @map("content_deleted_at")
+  contentRetentionStatus AiContentRetentionStatus @default(ACTIVE) @map("content_retention_status")
+  createdAt              DateTime               @default(now()) @map("created_at")
+  updatedAt              DateTime               @updatedAt @map("updated_at")
+
+  thread                         AiChatThread  @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user                           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userMessageGenerations         AiGeneration[] @relation("AiGenerationUserMessage")
+  assistantMessageForGenerations AiGeneration[] @relation("AiGenerationAssistantMessage")
+
+  @@unique([threadId, sequence])
+  @@index([contentRetentionStatus, contentRetentionUntil], map: "idx_ai_chat_message_retention")
+  @@map("ai_chat_message")
+}
+
+model AiGeneration {
+  id                 String             @id @default(cuid()) @map("id")
+  userId             String             @map("user_id")
+  threadId           String             @map("thread_id")
+  userMessageId      String             @map("user_message_id")
+  assistantMessageId String?            @unique @map("assistant_message_id")
+  provider           AiProvider         @map("provider")
+  requestedModel     String             @map("requested_model")
+  actualModel        String?            @map("actual_model")
+  promptVersion      String             @map("prompt_version")
+  status             AiGenerationStatus @default(PENDING) @map("status")
+  providerResponseId String?            @map("provider_response_id")
+  finishReason       String?            @map("finish_reason")
+  errorType          String?            @map("error_type")
+  safeErrorMessage   String?            @map("safe_error_message")
+  startedAt          DateTime?          @map("started_at")
+  completedAt        DateTime?          @map("completed_at")
+  latencyMs          Int?               @map("latency_ms")
+  maxOutputTokens    Int                @default(800) @map("max_output_tokens")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thread               AiChatThread          @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userMessage          AiChatMessage         @relation("AiGenerationUserMessage", fields: [userMessageId], references: [id], onDelete: Cascade)
+  assistantMessage     AiChatMessage?        @relation("AiGenerationAssistantMessage", fields: [assistantMessageId], references: [id], onDelete: SetNull)
+  journalContextUses   AiJournalContextUse[]
+  usageLogs            AiUsageLog[]
+
+  @@index([userId, status, createdAt])
+  @@map("ai_generation")
+}
+
+model AiJournalContextUse {
+  id                    String                        @id @default(cuid()) @map("id")
+  generationId          String                        @map("generation_id")
+  userId                String                        @map("user_id")
+  journalEntryId        String                        @map("journal_entry_id")
+  selectionMode         AiJournalContextSelectionMode @map("selection_mode")
+  selectionReason       String?                       @map("selection_reason")
+  rank                  Int                           @map("rank")
+  includedCharCount     Int                           @map("included_char_count")
+  includedTokenEstimate Int?                          @map("included_token_estimate")
+  journalEntryCreatedAt DateTime                      @map("journal_entry_created_at")
+  createdAt             DateTime                      @default(now()) @map("created_at")
+
+  generation   AiGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([generationId, rank])
+  @@unique([generationId, journalEntryId])
+  @@map("ai_journal_context_use")
+}
+
+model AiUsageLog {
+  id                     String                 @id @default(cuid()) @map("id")
+  userId                 String?                @map("user_id")
+  threadId               String?                @map("thread_id")
+  generationId           String?                @unique @map("generation_id")
+  environment            AiEnvironment          @map("environment")
+  feature                AiFeature              @default(JOURNAL_CHAT) @map("feature")
+  provider               AiProvider?            @map("provider")
+  model                  String?                @map("model")
+  promptVersion          String?                @map("prompt_version")
+  status                 AiUsageLogStatus       @map("status")
+  inputTokens            Int                    @default(0) @map("input_tokens")
+  cachedInputTokens      Int                    @default(0) @map("cached_input_tokens")
+  outputTokens           Int                    @default(0) @map("output_tokens")
+  reasoningTokens        Int?                   @map("reasoning_tokens")
+  totalTokens            Int                    @default(0) @map("total_tokens")
+  estimatedCostMicroUsd  Int                    @default(0) @map("estimated_cost_micro_usd")
+  latencyMs              Int?                   @map("latency_ms")
+  budgetCheckResult      AiBudgetCheckResult    @default(ALLOWED) @map("budget_check_result")
+  refusalReason          String?                @map("refusal_reason")
+  contentRetentionStatus AiContentRetentionStatus @default(ACTIVE) @map("content_retention_status")
+  contentDeletedAt       DateTime?              @map("content_deleted_at")
+  anonymizedAt           DateTime?              @map("anonymized_at")
+  createdAt              DateTime               @default(now()) @map("created_at")
+
+  user       User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  thread     AiChatThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  generation AiGeneration? @relation(fields: [generationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, feature, createdAt])
+  @@index([environment, createdAt])
+  @@index([threadId, createdAt])
+  @@map("ai_usage_log")
+}
+
+enum AiChatThreadStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AiChatMessageRole {
+  USER
+  ASSISTANT
+}
+
+enum AiGenerationStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum AiJournalContextSelectionMode {
+  DATE_WINDOW
+  KEYWORD
+  RECENT
+}
+
+enum AiUsageLogStatus {
+  COMPLETED
+  FAILED
+  CANCELLED
+  BUDGET_REFUSED
+  RATE_LIMIT_REFUSED
+}
+
+enum AiContentRetentionStatus {
+  ACTIVE
+  CONTENT_DELETED
+  ANONYMIZED
+}
+
+enum AiEnvironment {
+  LOCAL
+  TEST
+  DEMO
+  PRODUCTION
+}
+
+enum AiFeature {
+  JOURNAL_CHAT
+}
+
+enum AiProvider {
+  FAKE
+  OPENAI
+}
+
+enum AiBudgetCheckResult {
+  ALLOWED
+  APP_BUDGET_EXCEEDED
+  USER_DAILY_LIMIT_EXCEEDED
+  ACTIVE_STREAM_LIMIT_EXCEEDED
+  LIVE_CALLS_DISABLED
 }
