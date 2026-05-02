@@ -132,3 +132,21 @@
 - Do not silently add dependencies.
 - Do not bypass TypeScript with `any` unless justified.
 - Do not invent architecture when an existing repo pattern exists.
+
+## Context budget rules
+
+Do not inspect generated/build/vendor output unless the task is specifically about generation or build artifacts.
+
+Avoid reading:
+
+- node_modules/\*\*
+- dist/\*\*
+- coverage/\*\*
+- test-results/\*\*
+- playwright-report/\*\*
+- .next/\*\*
+- apps/app/src/lib/api-client/generated/\*\*
+- apps/app/src/routeTree.gen.ts
+- yarn.lock unless dependency resolution is the task
+
+Prefer targeted file reads and command outputs.
