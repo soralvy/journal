@@ -11,7 +11,11 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { type AiBudgetDecision, AiBudgetService, type CheckAiBudgetInput } from './ai-budget.service';
 import { AiChatLifecycleService } from './ai-chat-lifecycle.service';
-import { InvalidAiChatInputError } from './ai-chat-lifecycle-input';
+import {
+  countAiChatMessageCodePoints,
+  InvalidAiChatInputError,
+  resolveAiChatLifecycleInput,
+} from './ai-chat-lifecycle-input';
 import { AiJournalContextService } from './ai-journal-context.service';
 import { AI_DEFAULT_MODEL, AI_MAX_OUTPUT_TOKENS } from './ai-model-policy';
 import type { AiProviderGenerateInput, AiProviderGenerateResult, AiProviderPort } from './ai-provider.port';
@@ -26,17 +30,18 @@ const writeUsageLogInTransactionMock =
 const selectJournalContextMock = jest.fn<() => Promise<Record<string, unknown>>>();
 const providerGenerateMock = jest.fn<(input: AiProviderGenerateInput) => Promise<AiProviderGenerateResult>>();
 const transactionMock = jest.fn(<T>(callback: TransactionCallback<T>) => callback(transactionClient));
-const threadUpdateManyMock = jest.fn<() => Promise<Record<string, unknown>>>();
-const threadFindFirstMock = jest.fn<() => Promise<{ id: string } | null>>();
-const threadCreateMock = jest.fn<() => Promise<{ id: string }>>();
-const threadUpdateMock = jest.fn<() => Promise<Record<string, unknown>>>();
-const messageFindFirstMock = jest.fn<() => Promise<{ sequence: number } | null>>();
-const messageFindManyMock = jest.fn<() => Promise<Array<{ role: AiChatMessageRole; content: string | null }>>>();
-const messageCreateMock = jest.fn<() => Promise<{ id: string; sequence: number }>>();
-const generationCreateMock = jest.fn<() => Promise<{ id: string }>>();
-const generationUpdateMock = jest.fn<() => Promise<Record<string, unknown>>>();
-const contextCreateManyMock = jest.fn<() => Promise<Record<string, unknown>>>();
-const usageCreateMock = jest.fn<() => Promise<Record<string, unknown>>>();
+const threadUpdateManyMock = jest.fn<(args: unknown) => Promise<Record<string, unknown>>>();
+const threadFindFirstMock = jest.fn<(args: unknown) => Promise<{ id: string } | null>>();
+const threadCreateMock = jest.fn<(args: unknown) => Promise<{ id: string }>>();
+const threadUpdateMock = jest.fn<(args: unknown) => Promise<Record<string, unknown>>>();
+const messageFindFirstMock = jest.fn<(args: unknown) => Promise<{ sequence: number } | null>>();
+const messageFindManyMock =
+  jest.fn<(args: unknown) => Promise<Array<{ role: AiChatMessageRole; content: string | null }>>>();
+const messageCreateMock = jest.fn<(args: unknown) => Promise<{ id: string; sequence: number }>>();
+const generationCreateMock = jest.fn<(args: unknown) => Promise<{ id: string }>>();
+const generationUpdateMock = jest.fn<(args: unknown) => Promise<Record<string, unknown>>>();
+const contextCreateManyMock = jest.fn<(args: unknown) => Promise<Record<string, unknown>>>();
+const usageCreateMock = jest.fn<(args: unknown) => Promise<Record<string, unknown>>>();
 
 const transactionClient = {
   aiChatThread: {
@@ -104,8 +109,9 @@ const getUsageLogInput = (): WriteAiUsageLogInput => {
   return firstCall[0];
 };
 
-const getCompletionUsageLogInput = (): WriteAiUsageLogInput => {
+const getTransactionUsageLogInput = (): WriteAiUsageLogInput => {
   expect(writeUsageLogInTransactionMock).toHaveBeenCalledTimes(1);
+
   const firstCall = writeUsageLogInTransactionMock.mock.calls[0];
 
   if (firstCall === undefined) {
@@ -168,7 +174,7 @@ describe('AiChatLifecycleService', () => {
       operationEvents.push('provider');
 
       return Promise.resolve({
-        provider: 'FAKE',
+        providerName: 'FAKE',
         model: input.model,
         text: 'Fake assistant response',
         finishReason: 'stop',
@@ -396,7 +402,7 @@ describe('AiChatLifecycleService', () => {
       userId: 'user-id',
     });
 
-    const usageLogInput = getCompletionUsageLogInput();
+    const usageLogInput = getTransactionUsageLogInput();
     const usageLogText = JSON.stringify(usageLogInput);
 
     expect(usageLogInput).toEqual(
@@ -405,7 +411,7 @@ describe('AiChatLifecycleService', () => {
         threadId: 'thread-new',
         generationId: 'generation-id',
         environment: AiEnvironment.DEMO,
-        provider: 'FAKE',
+        providerName: 'FAKE',
         model: AI_DEFAULT_MODEL,
         promptVersion: 'journal-chat-v1',
         status: AiUsageLogStatus.COMPLETED,
@@ -442,9 +448,9 @@ describe('AiChatLifecycleService', () => {
         safeErrorMessage: 'AI chat failed before generating a response.',
       }),
     });
-    expect(getCompletionUsageLogInput()).toEqual(
+    expect(getTransactionUsageLogInput()).toEqual(
       expect.objectContaining({
-        provider: 'FAKE',
+        providerName: 'FAKE',
         model: AI_DEFAULT_MODEL,
         promptVersion: 'journal-chat-v1',
         status: AiUsageLogStatus.FAILED,
@@ -553,9 +559,9 @@ describe('AiChatLifecycleService', () => {
         safeErrorMessage: 'AI provider failed to generate a response.',
       }),
     });
-    expect(getCompletionUsageLogInput()).toEqual(
+    expect(getTransactionUsageLogInput()).toEqual(
       expect.objectContaining({
-        provider: 'FAKE',
+        providerName: 'FAKE',
         model: AI_DEFAULT_MODEL,
         promptVersion: 'journal-chat-v1',
         status: AiUsageLogStatus.FAILED,
@@ -565,5 +571,46 @@ describe('AiChatLifecycleService', () => {
     expect(providerGenerateMock).toHaveBeenCalledTimes(1);
     expect(messageCreateMock).toHaveBeenCalledTimes(1);
     expect(contextCreateManyMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects non-boolean providerCallsEnabled', () => {
+    expect(() =>
+      resolveAiChatLifecycleInput({
+        message: 'hello',
+        userId: 'user-id',
+        environment: AiEnvironment.DEMO,
+        providerCallsEnabled: 'true' as unknown as boolean,
+      }),
+    ).toThrow(InvalidAiChatInputError);
+  });
+
+  it('rejects invalid environment', () => {
+    expect(() =>
+      resolveAiChatLifecycleInput({
+        message: 'hello',
+        userId: 'user-id',
+        environment: 'NOPE' as AiEnvironment,
+        providerCallsEnabled: true,
+      }),
+    ).toThrow(InvalidAiChatInputError);
+  });
+
+  it('clones provided now date', () => {
+    const now = new Date('2026-05-02T12:00:00.000Z');
+
+    const resolved = resolveAiChatLifecycleInput({
+      message: 'hello',
+      userId: 'user-id',
+      environment: AiEnvironment.DEMO,
+      providerCallsEnabled: true,
+      now,
+    });
+
+    expect(resolved.lifecycleStartedAt).toEqual(now);
+    expect(resolved.lifecycleStartedAt).not.toBe(now);
+  });
+
+  it('counts Unicode code points instead of UTF-16 code units', () => {
+    expect(countAiChatMessageCodePoints('🙂')).toBe(1);
   });
 });

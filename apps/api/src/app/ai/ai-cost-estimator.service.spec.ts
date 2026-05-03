@@ -9,7 +9,7 @@ describe('AiCostEstimatorService', () => {
   it('estimates fake provider usage at zero cost', () => {
     expect(
       service.estimateCostMicroUsd({
-        provider: 'FAKE',
+        providerName: 'FAKE',
         model: AI_DEFAULT_MODEL,
         usage: {
           inputTokens: 100,
@@ -24,7 +24,7 @@ describe('AiCostEstimatorService', () => {
   it('uses gpt-5.4-nano standard pricing for uncached input, cached input, and output tokens', () => {
     expect(
       service.estimateCostMicroUsd({
-        provider: 'OPENAI',
+        providerName: 'OPENAI',
         model: AI_DEFAULT_MODEL,
         usage: {
           inputTokens: 1000,
@@ -39,7 +39,7 @@ describe('AiCostEstimatorService', () => {
   it('rejects usage when cached input tokens exceed input tokens', () => {
     expect(() =>
       service.estimateCostMicroUsd({
-        provider: 'OPENAI',
+        providerName: 'OPENAI',
         model: AI_DEFAULT_MODEL,
         usage: {
           inputTokens: 10,
@@ -54,7 +54,7 @@ describe('AiCostEstimatorService', () => {
   it('rejects negative token counts', () => {
     expect(() =>
       service.estimateCostMicroUsd({
-        provider: 'OPENAI',
+        providerName: 'OPENAI',
         model: AI_DEFAULT_MODEL,
         usage: {
           inputTokens: -1,
@@ -69,7 +69,7 @@ describe('AiCostEstimatorService', () => {
   it('rejects non-integer token counts', () => {
     expect(() =>
       service.estimateCostMicroUsd({
-        provider: 'OPENAI',
+        providerName: 'OPENAI',
         model: AI_DEFAULT_MODEL,
         usage: {
           inputTokens: 1.5,
@@ -84,7 +84,7 @@ describe('AiCostEstimatorService', () => {
   it('rejects reasoning tokens because the MVP has no reasoning mode', () => {
     expect(() =>
       service.estimateCostMicroUsd({
-        provider: 'OPENAI',
+        providerName: 'OPENAI',
         model: AI_DEFAULT_MODEL,
         usage: {
           inputTokens: 1,
@@ -100,7 +100,7 @@ describe('AiCostEstimatorService', () => {
   it('rejects unsupported provider/model pricing targets', () => {
     expect(() =>
       service.estimateCostMicroUsd({
-        provider: 'OPENAI',
+        providerName: 'OPENAI',
         model: 'gpt-5.4-mini',
         usage: {
           inputTokens: 1,

@@ -17,7 +17,7 @@ describe('FakeAiProvider', () => {
         messages: [{ role: 'user', content: 'What patterns do you notice?' }],
       }),
     ).resolves.toEqual({
-      provider: 'FAKE',
+      providerName: 'FAKE',
       model: AI_DEFAULT_MODEL,
       text: 'Fake assistant response: What patterns do you notice?',
       finishReason: 'stop',

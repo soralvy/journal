@@ -1,32 +1,58 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { AiBudgetCheckResult, AiEnvironment, AiUsageLogStatus } from '@repo/database';
+import { AiBudgetCheckResult, AiEnvironment, AiUsageLog, AiUsageLogStatus } from '@repo/database';
 
-import { PrismaService } from '../prisma/prisma.service';
 import { AiCostEstimatorService } from './ai-cost-estimator.service';
 import { AI_DEFAULT_MODEL } from './ai-model-policy';
 import {
   AiUsageLedgerService,
+  AiUsageLogTransactionClient,
   InvalidAiUsageLogInputError,
   type WriteAiUsageLogInput,
 } from './ai-usage-ledger.service';
 
-type CreateUsageLogInput = {
-  data: Record<string, unknown>;
-};
+type UsageLogCreate = AiUsageLogTransactionClient['aiUsageLog']['create'];
 
-const createUsageLogMock = jest.fn<(input: CreateUsageLogInput) => Promise<Record<string, unknown>>>();
-const transactionCreateUsageLogMock = jest.fn<(input: CreateUsageLogInput) => Promise<Record<string, unknown>>>();
+const createUsageLogMock = jest.fn<UsageLogCreate>();
+const transactionCreateUsageLogMock = jest.fn<UsageLogCreate>();
 
 const prismaService = {
   aiUsageLog: {
     create: createUsageLogMock,
   },
-};
+} satisfies AiUsageLogTransactionClient;
+
 const transactionClient = {
   aiUsageLog: {
     create: transactionCreateUsageLogMock,
   },
-};
+} satisfies AiUsageLogTransactionClient;
+
+const createAiUsageLogFixture = (overrides: Partial<AiUsageLog> = {}): AiUsageLog => ({
+  id: 'usage-log-id',
+  userId: 'user-id',
+  threadId: 'thread-id',
+  generationId: 'generation-id',
+  environment: AiEnvironment.DEMO,
+  feature: 'JOURNAL_CHAT',
+  provider: null,
+  model: 'gpt-5.4-nano',
+  promptVersion: 'journal-chat-v1',
+  status: AiUsageLogStatus.COMPLETED,
+  budgetCheckResult: AiBudgetCheckResult.ALLOWED,
+  refusalReason: null,
+  inputTokens: 0,
+  cachedInputTokens: 0,
+  outputTokens: 0,
+  totalTokens: 0,
+  estimatedCostMicroUsd: 0,
+  latencyMs: null,
+  createdAt: new Date('2026-05-02T12:00:00.000Z'),
+  reasoningTokens: 0,
+  contentRetentionStatus: 'ACTIVE',
+  contentDeletedAt: new Date('2026-05-02T12:00:00.000Z'),
+  anonymizedAt: new Date('2026-05-02T12:00:00.000Z'),
+  ...overrides,
+});
 
 describe('AiUsageLedgerService', () => {
   let service: AiUsageLedgerService;
@@ -34,9 +60,9 @@ describe('AiUsageLedgerService', () => {
   beforeEach(() => {
     createUsageLogMock.mockReset();
     transactionCreateUsageLogMock.mockReset();
-    createUsageLogMock.mockResolvedValue({ id: 'usage-log-id' });
-    transactionCreateUsageLogMock.mockResolvedValue({ id: 'transaction-usage-log-id' });
-    service = new AiUsageLedgerService(prismaService as unknown as PrismaService, new AiCostEstimatorService());
+    createUsageLogMock.mockResolvedValue(createAiUsageLogFixture());
+    transactionCreateUsageLogMock.mockResolvedValue(createAiUsageLogFixture());
+    service = new AiUsageLedgerService(prismaService, new AiCostEstimatorService());
   });
 
   it('writes completed generation usage with calculated cost', async () => {
@@ -45,7 +71,7 @@ describe('AiUsageLedgerService', () => {
       threadId: 'thread-id',
       generationId: 'generation-id',
       environment: AiEnvironment.DEMO,
-      provider: 'OPENAI',
+      providerName: 'OPENAI',
       model: AI_DEFAULT_MODEL,
       promptVersion: 'journal-chat-v1',
       status: AiUsageLogStatus.COMPLETED,
@@ -108,7 +134,7 @@ describe('AiUsageLedgerService', () => {
       threadId: 'thread-id',
       generationId: 'generation-id',
       environment: AiEnvironment.DEMO,
-      provider: 'FAKE',
+      providerName: 'FAKE',
       model: 'gpt-5.4-nano',
       promptVersion: 'journal-chat-v1',
       status: AiUsageLogStatus.COMPLETED,
@@ -159,7 +185,7 @@ describe('AiUsageLedgerService', () => {
       threadId: 'thread-id',
       generationId: 'generation-id',
       environment: AiEnvironment.DEMO,
-      provider: 'FAKE',
+      providerName: 'FAKE',
       model: 'gpt-5.4-nano',
       promptVersion: 'journal-chat-v1',
       status: AiUsageLogStatus.COMPLETED,
@@ -193,7 +219,7 @@ describe('AiUsageLedgerService', () => {
       threadId: 'thread-id',
       generationId: 'generation-id',
       environment: AiEnvironment.DEMO,
-      provider: 'OPENAI' as const,
+      providerName: 'OPENAI' as const,
       model: AI_DEFAULT_MODEL,
       promptVersion: 'journal-chat-v1',
       status: AiUsageLogStatus.COMPLETED,

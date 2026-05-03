@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { AiEnvironment, AiUsageLog, AiUsageLogStatus, Prisma } from '@repo/database';
 import { AiBudgetCheckResult, AiContentRetentionStatus, AiFeature } from '@repo/database';
 
@@ -23,7 +23,13 @@ export interface WriteAiUsageLogInput {
   contentRetentionStatus?: AiContentRetentionStatus;
 }
 
-type AiUsageLogTransactionClient = Pick<Prisma.TransactionClient, 'aiUsageLog'>;
+export interface AiUsageLogTransactionClient {
+  aiUsageLog: {
+    create(args: { data: Prisma.AiUsageLogCreateArgs['data'] }): Promise<AiUsageLog>;
+  };
+}
+
+export type AiUsageLedgerPrismaClient = AiUsageLogTransactionClient;
 
 const getTotalTokens = (usage: AiTokenUsage): number => {
   return usage.totalTokens;
@@ -91,7 +97,8 @@ const buildAiUsageLogCreateData = (
 @Injectable()
 export class AiUsageLedgerService {
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(PrismaService)
+    private readonly prisma: AiUsageLedgerPrismaClient,
     private readonly costEstimator: AiCostEstimatorService,
   ) {}
 

@@ -1,3 +1,5 @@
+import { AiEnvironment } from '@repo/database';
+
 import { ResolvedAiChatLifecycleInput, RunAiChatLifecycleInput } from './ai-chat-lifecycle.types';
 
 export const MAX_CHAT_MESSAGE_CHARS = 4000;
@@ -10,7 +12,7 @@ export class InvalidAiChatInputError extends Error {
   }
 }
 
-export const countAiChatMessageChars = (value: string): number => {
+export const countAiChatMessageCodePoints = (value: string): number => {
   return [...value].length;
 };
 
@@ -31,7 +33,7 @@ const resolveLifecycleStartedAt = (now: unknown): Date => {
     throw new InvalidAiChatInputError('now must be a valid Date.');
   }
 
-  return now;
+  return new Date(now);
 };
 
 const resolveMessage = (message: unknown): string => {
@@ -41,7 +43,7 @@ const resolveMessage = (message: unknown): string => {
     throw new InvalidAiChatInputError('message must be non-empty.');
   }
 
-  if (countAiChatMessageChars(trimmedMessage) > MAX_CHAT_MESSAGE_CHARS) {
+  if (countAiChatMessageCodePoints(trimmedMessage) > MAX_CHAT_MESSAGE_CHARS) {
     throw new InvalidAiChatInputError(`message must be at most ${MAX_CHAT_MESSAGE_CHARS} characters.`);
   }
 
@@ -66,10 +68,38 @@ const resolveUserId = (input: RunAiChatLifecycleInput): string => {
   throw new InvalidAiChatInputError('userId is required.');
 };
 
-export const resolveAiChatLifecycleInput = (input: RunAiChatLifecycleInput): ResolvedAiChatLifecycleInput => ({
-  message: resolveMessage(input.message),
-  userId: resolveUserId(input),
-  environment: input.environment,
-  providerCallsEnabled: input.providerCallsEnabled,
-  lifecycleStartedAt: resolveLifecycleStartedAt(input.now),
-});
+const AI_ENVIRONMENTS = new Set<AiEnvironment>(Object.values(AiEnvironment) as AiEnvironment[]);
+
+const resolveEnvironment = (environment: unknown): AiEnvironment => {
+  if (typeof environment !== 'string' || !AI_ENVIRONMENTS.has(environment as AiEnvironment)) {
+    throw new InvalidAiChatInputError('environment must be a valid AiEnvironment.');
+  }
+
+  return environment as AiEnvironment;
+};
+
+const resolveProviderCallsEnabled = (value: unknown): boolean => {
+  if (typeof value !== 'boolean') {
+    throw new InvalidAiChatInputError('providerCallsEnabled must be a boolean.');
+  }
+
+  return value;
+};
+
+const assertInputObject: (input: unknown) => asserts input is RunAiChatLifecycleInput = (input) => {
+  if (input === null || typeof input !== 'object') {
+    throw new InvalidAiChatInputError('input must be an object.');
+  }
+};
+
+export const resolveAiChatLifecycleInput = (input: RunAiChatLifecycleInput): ResolvedAiChatLifecycleInput => {
+  assertInputObject(input);
+
+  return {
+    message: resolveMessage(input.message),
+    userId: resolveUserId(input),
+    environment: resolveEnvironment(input.environment),
+    providerCallsEnabled: resolveProviderCallsEnabled(input.providerCallsEnabled),
+    lifecycleStartedAt: resolveLifecycleStartedAt(input.now),
+  };
+};

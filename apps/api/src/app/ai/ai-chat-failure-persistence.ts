@@ -4,9 +4,9 @@ import type {
   AiChatFailedResult,
   AiChatFailurePersistencePrismaClient,
   AiChatFailurePersistenceTransactionClient,
+  AiChatFailurePersistenceUsageLedger,
   FailAiChatLifecycleInput,
 } from './ai-chat-lifecycle.types';
-import type { AiUsageLedgerService } from './ai-usage-ledger.service';
 
 const getLatencyMs = (startedAt: Date, failureAt: Date): number => {
   return failureAt.getTime() - startedAt.getTime();
@@ -14,7 +14,7 @@ const getLatencyMs = (startedAt: Date, failureAt: Date): number => {
 
 export const failAiChatLifecyclePersistence = async (
   prisma: AiChatFailurePersistencePrismaClient,
-  usageLedger: AiUsageLedgerService,
+  usageLedger: AiChatFailurePersistenceUsageLedger,
   input: FailAiChatLifecycleInput,
 ): Promise<AiChatFailedResult> => {
   return prisma.$transaction((tx) => failAiChatLifecyclePersistenceInTransaction(tx, usageLedger, input));
@@ -22,7 +22,7 @@ export const failAiChatLifecyclePersistence = async (
 
 export const failAiChatLifecyclePersistenceInTransaction = async (
   tx: AiChatFailurePersistenceTransactionClient,
-  usageLedger: AiUsageLedgerService,
+  usageLedger: AiChatFailurePersistenceUsageLedger,
   input: FailAiChatLifecycleInput,
 ): Promise<AiChatFailedResult> => {
   const latencyMs = getLatencyMs(input.initialized.lifecycleStartedAt, input.failureAt);
@@ -39,6 +39,7 @@ export const failAiChatLifecyclePersistenceInTransaction = async (
       safeErrorMessage: input.safeErrorMessage,
     },
   });
+
   await usageLedger.writeUsageLogInTransaction(tx, {
     userId: input.lifecycleInput.userId,
     threadId: input.initialized.threadId,

@@ -1,26 +1,30 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { AiBudgetCheckResult, AiEnvironment, AiGenerationStatus, AiUsageLogStatus } from '@repo/database';
 
-import { failAiChatLifecyclePersistence } from './ai-chat-failure-persistence';
+import {
+  failAiChatLifecyclePersistence,
+  failAiChatLifecyclePersistenceInTransaction,
+} from './ai-chat-failure-persistence';
 import { AI_CHAT_PROMPT_VERSION } from './ai-chat-initial-persistence';
 import type {
+  AiChatFailurePersistencePrismaClient,
   AiChatFailurePersistenceTransactionClient,
+  AiChatFailurePersistenceUsageLedger,
   AiChatInitializedResult,
+  FailAiChatLifecycleInput,
   ResolvedAiChatLifecycleInput,
 } from './ai-chat-lifecycle.types';
-import type { AiUsageLedgerService, WriteAiUsageLogInput } from './ai-usage-ledger.service';
+import type { AiUsageLogTransactionClient } from './ai-usage-ledger.service';
 
-type TransactionCallback<T> = (tx: typeof transactionClient) => Promise<T>;
+type TransactionCallback<T> = (tx: AiChatFailurePersistenceTransactionClient) => Promise<T>;
 
-const transactionMock = jest.fn(<T>(callback: TransactionCallback<T>) => callback(transactionClient));
-const generationUpdateMock = jest.fn<() => Promise<Record<string, unknown>>>();
-const usageCreateMock = jest.fn<() => Promise<Record<string, unknown>>>();
-const writeUsageLogInTransactionMock =
-  jest.fn<
-    (tx: AiChatFailurePersistenceTransactionClient, input: WriteAiUsageLogInput) => Promise<Record<string, unknown>>
-  >();
+const generationUpdateMock = jest.fn<AiChatFailurePersistenceTransactionClient['aiGeneration']['update']>();
 
-const transactionClient = {
+const usageCreateMock = jest.fn<AiUsageLogTransactionClient['aiUsageLog']['create']>();
+
+const writeUsageLogInTransactionMock = jest.fn<AiChatFailurePersistenceUsageLedger['writeUsageLogInTransaction']>();
+
+const tx = {
   aiGeneration: {
     update: generationUpdateMock,
   },
@@ -29,13 +33,18 @@ const transactionClient = {
   },
 } satisfies AiChatFailurePersistenceTransactionClient;
 
+const transactionSpy = jest.fn<(callback: TransactionCallback<unknown>) => void>();
+
 const prisma = {
-  $transaction: transactionMock,
-};
+  $transaction: async <T>(callback: TransactionCallback<T>): Promise<T> => {
+    transactionSpy(callback);
+    return callback(tx);
+  },
+} satisfies AiChatFailurePersistencePrismaClient;
 
 const usageLedger = {
   writeUsageLogInTransaction: writeUsageLogInTransactionMock,
-};
+} satisfies AiChatFailurePersistenceUsageLedger;
 
 const initialized: AiChatInitializedResult = {
   status: 'INITIALIZED',
@@ -54,32 +63,53 @@ const lifecycleInput: ResolvedAiChatLifecycleInput = {
   lifecycleStartedAt: new Date('2026-05-02T12:00:00.000Z'),
 };
 
+const failureAt = new Date('2026-05-02T12:00:03.000Z');
+
+const baseInput = {
+  initialized,
+  lifecycleInput,
+  failureAt,
+  errorType: 'PROVIDER_ERROR',
+  safeErrorMessage: 'AI provider failed to generate a response.',
+  requestedModel: 'gpt-5.4-nano',
+  promptVersion: AI_CHAT_PROMPT_VERSION,
+  providerName: 'FAKE',
+} satisfies FailAiChatLifecycleInput;
+
+const persist = (overrides: Partial<FailAiChatLifecycleInput> = {}) => {
+  return failAiChatLifecyclePersistence(prisma, usageLedger, {
+    ...baseInput,
+    ...overrides,
+  });
+};
+
+const persistInTransaction = (overrides: Partial<FailAiChatLifecycleInput> = {}) => {
+  return failAiChatLifecyclePersistenceInTransaction(tx, usageLedger, {
+    ...baseInput,
+    ...overrides,
+  });
+};
+
 describe('failAiChatLifecyclePersistence', () => {
   beforeEach(() => {
-    transactionMock.mockReset();
+    transactionSpy.mockReset();
     generationUpdateMock.mockReset();
     usageCreateMock.mockReset();
     writeUsageLogInTransactionMock.mockReset();
 
-    transactionMock.mockImplementation(<T>(callback: TransactionCallback<T>) => callback(transactionClient));
-    generationUpdateMock.mockResolvedValue({ id: 'generation-id' });
-    usageCreateMock.mockResolvedValue({ id: 'usage-log-id' });
+    generationUpdateMock.mockResolvedValue({
+      id: 'generation-id',
+    } as Awaited<ReturnType<AiChatFailurePersistenceTransactionClient['aiGeneration']['update']>>);
+
+    usageCreateMock.mockResolvedValue({
+      id: 'usage-log-id',
+    } as Awaited<ReturnType<AiUsageLogTransactionClient['aiUsageLog']['create']>>);
+
     writeUsageLogInTransactionMock.mockResolvedValue({ id: 'usage-log-id' });
   });
 
   it('updates the generation to FAILED with safe error metadata', async () => {
-    const failureAt = new Date('2026-05-02T12:00:03.000Z');
-
-    await failAiChatLifecyclePersistence(prisma, usageLedger as unknown as AiUsageLedgerService, {
-      initialized,
-      lifecycleInput,
-      failureAt,
-      errorType: 'PROVIDER_ERROR',
-      safeErrorMessage: 'AI provider failed to generate a response.',
-      requestedModel: 'gpt-5.4-nano',
-      promptVersion: AI_CHAT_PROMPT_VERSION,
-      provider: 'FAKE',
-    });
+    await persistInTransaction();
 
     expect(generationUpdateMock).toHaveBeenCalledWith({
       where: {
@@ -96,23 +126,17 @@ describe('failAiChatLifecyclePersistence', () => {
   });
 
   it('writes failed usage through the transaction-aware usage ledger method', async () => {
-    await failAiChatLifecyclePersistence(prisma, usageLedger as unknown as AiUsageLedgerService, {
-      initialized,
-      lifecycleInput,
-      failureAt: new Date('2026-05-02T12:00:03.000Z'),
+    await persistInTransaction({
       errorType: 'RETRIEVAL_ERROR',
       safeErrorMessage: 'AI chat failed before generating a response.',
-      requestedModel: 'gpt-5.4-nano',
-      promptVersion: AI_CHAT_PROMPT_VERSION,
-      provider: 'FAKE',
     });
 
-    expect(writeUsageLogInTransactionMock).toHaveBeenCalledWith(transactionClient, {
+    expect(writeUsageLogInTransactionMock).toHaveBeenCalledWith(tx, {
       userId: 'user-id',
       threadId: 'thread-id',
       generationId: 'generation-id',
       environment: AiEnvironment.DEMO,
-      provider: 'FAKE',
+      providerName: 'FAKE',
       model: 'gpt-5.4-nano',
       promptVersion: AI_CHAT_PROMPT_VERSION,
       status: AiUsageLogStatus.FAILED,
@@ -122,44 +146,52 @@ describe('failAiChatLifecyclePersistence', () => {
     });
   });
 
-  it('does not store raw prompt, response, journal content, error message, or stack', async () => {
-    await failAiChatLifecyclePersistence(prisma, usageLedger as unknown as AiUsageLedgerService, {
-      initialized,
+  it('does not persist raw user prompt or unsafe diagnostic details', async () => {
+    await persistInTransaction({
       lifecycleInput: {
         ...lifecycleInput,
         message: 'raw user prompt',
       },
-      failureAt: new Date('2026-05-02T12:00:03.000Z'),
-      errorType: 'PROVIDER_ERROR',
-      safeErrorMessage: 'AI provider failed to generate a response.',
-      requestedModel: 'gpt-5.4-nano',
-      promptVersion: AI_CHAT_PROMPT_VERSION,
-      provider: 'FAKE',
+      safeErrorMessage: 'Safe user-facing failure message.',
     });
-    const storedText = JSON.stringify([generationUpdateMock.mock.calls, writeUsageLogInTransactionMock.mock.calls]);
 
-    expect(storedText).not.toContain('raw user prompt');
-    expect(storedText).not.toContain('private journal content');
-    expect(storedText).not.toContain('raw provider response');
-    expect(storedText).not.toContain('Error:');
+    const persistedPayload = JSON.stringify([
+      generationUpdateMock.mock.calls,
+      writeUsageLogInTransactionMock.mock.calls,
+    ]);
+
+    expect(persistedPayload).not.toContain('raw user prompt');
+    expect(persistedPayload).not.toContain('raw provider response');
+    expect(persistedPayload).not.toContain('stack');
+    expect(persistedPayload).not.toContain('Error:');
+
+    expect(persistedPayload).toContain('Safe user-facing failure message.');
   });
 
   it('returns a minimal FAILED result', async () => {
-    const result = await failAiChatLifecyclePersistence(prisma, usageLedger as unknown as AiUsageLedgerService, {
-      initialized,
-      lifecycleInput,
-      failureAt: new Date('2026-05-02T12:00:03.000Z'),
-      errorType: 'PROVIDER_ERROR',
-      safeErrorMessage: 'AI provider failed to generate a response.',
-      requestedModel: 'gpt-5.4-nano',
-      promptVersion: AI_CHAT_PROMPT_VERSION,
-      provider: 'FAKE',
-    });
-
-    expect(result).toEqual({
+    await expect(persistInTransaction()).resolves.toEqual({
       status: 'FAILED',
       generationId: 'generation-id',
       safeErrorMessage: 'AI provider failed to generate a response.',
     });
+  });
+
+  it('runs failure persistence inside a transaction', async () => {
+    await persist();
+
+    expect(transactionSpy).toHaveBeenCalledTimes(1);
+    expect(generationUpdateMock).toHaveBeenCalledTimes(1);
+    expect(writeUsageLogInTransactionMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('propagates persistence errors without retrying', async () => {
+    const error = new Error('database unavailable');
+
+    generationUpdateMock.mockRejectedValueOnce(error);
+
+    await expect(persist()).rejects.toBe(error);
+
+    expect(transactionSpy).toHaveBeenCalledTimes(1);
+    expect(writeUsageLogInTransactionMock).not.toHaveBeenCalled();
   });
 });

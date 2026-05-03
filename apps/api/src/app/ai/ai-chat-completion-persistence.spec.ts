@@ -11,27 +11,32 @@ import {
 } from '@repo/database';
 
 import {
+  AiChatCompletionPersistencePrismaClient,
   type AiChatCompletionPersistenceTransactionClient,
+  AiChatCompletionPersistenceUsageLedger,
+  CompleteAiChatLifecycleInput,
   completeAiChatLifecyclePersistence,
+  completeAiChatLifecyclePersistenceInTransaction,
 } from './ai-chat-completion-persistence';
 import { AI_CHAT_PROMPT_VERSION } from './ai-chat-initial-persistence';
 import type { AiChatInitializedResult, ResolvedAiChatLifecycleInput } from './ai-chat-lifecycle.types';
 import type { AiProviderGenerateResult } from './ai-provider.port';
-import type { AiUsageLedgerService, WriteAiUsageLogInput } from './ai-usage-ledger.service';
+import type { AiUsageLogTransactionClient } from './ai-usage-ledger.service';
 
-type TransactionCallback<T> = (tx: typeof transactionClient) => Promise<T>;
+const messageFindFirstMock = jest.fn<AiChatCompletionPersistenceTransactionClient['aiChatMessage']['findFirst']>();
 
-const transactionMock = jest.fn(<T>(callback: TransactionCallback<T>) => callback(transactionClient));
-const messageFindFirstMock = jest.fn<() => Promise<{ sequence: number } | null>>();
-const messageCreateMock = jest.fn<() => Promise<{ id: string; sequence: number }>>();
-const generationUpdateMock = jest.fn<() => Promise<Record<string, unknown>>>();
-const contextCreateManyMock = jest.fn<() => Promise<Record<string, unknown>>>();
-const usageCreateMock = jest.fn<() => Promise<Record<string, unknown>>>();
-const threadUpdateMock = jest.fn<() => Promise<Record<string, unknown>>>();
-const writeUsageLogInTransactionMock =
-  jest.fn<
-    (tx: AiChatCompletionPersistenceTransactionClient, input: WriteAiUsageLogInput) => Promise<Record<string, unknown>>
-  >();
+const messageCreateMock = jest.fn<AiChatCompletionPersistenceTransactionClient['aiChatMessage']['create']>();
+
+const generationUpdateMock = jest.fn<AiChatCompletionPersistenceTransactionClient['aiGeneration']['update']>();
+
+const contextCreateManyMock =
+  jest.fn<AiChatCompletionPersistenceTransactionClient['aiJournalContextUse']['createMany']>();
+
+const usageCreateMock = jest.fn<AiUsageLogTransactionClient['aiUsageLog']['create']>();
+
+const threadUpdateMock = jest.fn<AiChatCompletionPersistenceTransactionClient['aiChatThread']['update']>();
+
+const writeUsageLogInTransactionMock = jest.fn<AiChatCompletionPersistenceUsageLedger['writeUsageLogInTransaction']>();
 
 const transactionClient = {
   aiChatMessage: {
@@ -52,13 +57,20 @@ const transactionClient = {
   },
 } satisfies AiChatCompletionPersistenceTransactionClient;
 
+type TransactionCallback<T> = (tx: AiChatCompletionPersistenceTransactionClient) => Promise<T>;
+
+const transactionSpy = jest.fn<(callback: TransactionCallback<unknown>) => void>();
+
 const prisma = {
-  $transaction: transactionMock,
-};
+  $transaction: async <T>(callback: TransactionCallback<T>): Promise<T> => {
+    transactionSpy(callback);
+    return callback(transactionClient);
+  },
+} satisfies AiChatCompletionPersistencePrismaClient;
 
 const usageLedger = {
   writeUsageLogInTransaction: writeUsageLogInTransactionMock,
-};
+} satisfies AiChatCompletionPersistenceUsageLedger;
 
 const initialized: AiChatInitializedResult = {
   status: 'INITIALIZED',
@@ -78,7 +90,7 @@ const lifecycleInput: ResolvedAiChatLifecycleInput = {
 };
 
 const providerResult: AiProviderGenerateResult = {
-  provider: 'FAKE',
+  providerName: 'FAKE',
   model: 'gpt-5.4-nano',
   text: 'Fake assistant response',
   finishReason: 'stop',
@@ -88,6 +100,31 @@ const providerResult: AiProviderGenerateResult = {
     outputTokens: 2,
     totalTokens: 6,
   },
+};
+
+const completedAt = new Date('2026-05-02T12:00:02.000Z');
+
+const baseInput = {
+  initialized,
+  lifecycleInput,
+  providerResult,
+  selectedJournalContext: [],
+  promptVersion: AI_CHAT_PROMPT_VERSION,
+  completedAt,
+} satisfies CompleteAiChatLifecycleInput;
+
+const persist = (overrides: Partial<CompleteAiChatLifecycleInput> = {}) => {
+  return completeAiChatLifecyclePersistence(prisma, usageLedger, {
+    ...baseInput,
+    ...overrides,
+  });
+};
+
+const persistInTransaction = (overrides: Partial<CompleteAiChatLifecycleInput> = {}) => {
+  return completeAiChatLifecyclePersistenceInTransaction(transactionClient, usageLedger, {
+    ...baseInput,
+    ...overrides,
+  });
 };
 
 const createSequenceConflictError = (): Prisma.PrismaClientKnownRequestError => {
@@ -112,7 +149,7 @@ const createWrongTargetConflictError = (): Prisma.PrismaClientKnownRequestError 
 
 describe('completeAiChatLifecyclePersistence', () => {
   beforeEach(() => {
-    transactionMock.mockReset();
+    transactionSpy.mockReset();
     messageFindFirstMock.mockReset();
     messageCreateMock.mockReset();
     generationUpdateMock.mockReset();
@@ -121,25 +158,19 @@ describe('completeAiChatLifecyclePersistence', () => {
     threadUpdateMock.mockReset();
     writeUsageLogInTransactionMock.mockReset();
 
-    transactionMock.mockImplementation(<T>(callback: TransactionCallback<T>) => callback(transactionClient));
     messageFindFirstMock.mockResolvedValue({ sequence: 1 });
     messageCreateMock.mockResolvedValue({ id: 'assistant-message-id', sequence: 2 });
     generationUpdateMock.mockResolvedValue({ id: 'generation-id' });
     contextCreateManyMock.mockResolvedValue({ count: 1 });
-    usageCreateMock.mockResolvedValue({ id: 'usage-log-id' });
+    usageCreateMock.mockResolvedValue({
+      id: 'usage-log-id',
+    } as Awaited<ReturnType<AiUsageLogTransactionClient['aiUsageLog']['create']>>);
     threadUpdateMock.mockResolvedValue({ id: 'thread-id' });
     writeUsageLogInTransactionMock.mockResolvedValue({ id: 'usage-log-id' });
   });
 
   it('creates the assistant message with the next sequence', async () => {
-    await completeAiChatLifecyclePersistence(prisma, usageLedger as unknown as AiUsageLedgerService, {
-      initialized,
-      lifecycleInput,
-      providerResult,
-      selectedJournalContext: [],
-      promptVersion: AI_CHAT_PROMPT_VERSION,
-      completedAt: new Date('2026-05-02T12:00:02.000Z'),
-    });
+    await completeAiChatLifecyclePersistence(prisma, usageLedger, baseInput);
 
     expect(messageCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -159,7 +190,7 @@ describe('completeAiChatLifecyclePersistence', () => {
   });
 
   it('counts assistant message content by Unicode code point', async () => {
-    await completeAiChatLifecyclePersistence(prisma, usageLedger as unknown as AiUsageLedgerService, {
+    await completeAiChatLifecyclePersistence(prisma, usageLedger, {
       initialized,
       lifecycleInput,
       providerResult: {
@@ -186,7 +217,7 @@ describe('completeAiChatLifecyclePersistence', () => {
   it('updates the generation to COMPLETED and links the assistant message', async () => {
     const completedAt = new Date('2026-05-02T12:00:02.000Z');
 
-    await completeAiChatLifecyclePersistence(prisma, usageLedger as unknown as AiUsageLedgerService, {
+    await completeAiChatLifecyclePersistence(prisma, usageLedger, {
       initialized,
       lifecycleInput,
       providerResult,
@@ -214,7 +245,7 @@ describe('completeAiChatLifecyclePersistence', () => {
   it('writes context audit rows without journal content', async () => {
     const journalEntryCreatedAt = new Date('2026-05-01T08:00:00.000Z');
 
-    await completeAiChatLifecyclePersistence(prisma, usageLedger as unknown as AiUsageLedgerService, {
+    await completeAiChatLifecyclePersistence(prisma, usageLedger, {
       initialized,
       lifecycleInput,
       providerResult,
@@ -254,34 +285,20 @@ describe('completeAiChatLifecyclePersistence', () => {
   });
 
   it('writes no audit rows when retrieval selected no context', async () => {
-    await completeAiChatLifecyclePersistence(prisma, usageLedger as unknown as AiUsageLedgerService, {
-      initialized,
-      lifecycleInput,
-      providerResult,
-      selectedJournalContext: [],
-      promptVersion: AI_CHAT_PROMPT_VERSION,
-      completedAt: new Date('2026-05-02T12:00:02.000Z'),
-    });
+    await completeAiChatLifecyclePersistence(prisma, usageLedger, baseInput);
 
     expect(contextCreateManyMock).not.toHaveBeenCalled();
   });
 
   it('writes completed usage through the transaction-aware usage ledger method', async () => {
-    await completeAiChatLifecyclePersistence(prisma, usageLedger as unknown as AiUsageLedgerService, {
-      initialized,
-      lifecycleInput,
-      providerResult,
-      selectedJournalContext: [],
-      promptVersion: AI_CHAT_PROMPT_VERSION,
-      completedAt: new Date('2026-05-02T12:00:02.000Z'),
-    });
+    await completeAiChatLifecyclePersistence(prisma, usageLedger, baseInput);
 
     expect(writeUsageLogInTransactionMock).toHaveBeenCalledWith(transactionClient, {
       userId: 'user-id',
       threadId: 'thread-id',
       generationId: 'generation-id',
       environment: AiEnvironment.DEMO,
-      provider: 'FAKE',
+      providerName: 'FAKE',
       model: 'gpt-5.4-nano',
       promptVersion: AI_CHAT_PROMPT_VERSION,
       status: AiUsageLogStatus.COMPLETED,
@@ -294,7 +311,7 @@ describe('completeAiChatLifecyclePersistence', () => {
   it('updates thread timestamps and retention from completedAt', async () => {
     const completedAt = new Date('2026-05-02T12:00:02.000Z');
 
-    await completeAiChatLifecyclePersistence(prisma, usageLedger as unknown as AiUsageLedgerService, {
+    await completeAiChatLifecyclePersistence(prisma, usageLedger, {
       initialized,
       lifecycleInput,
       providerResult,
@@ -316,14 +333,7 @@ describe('completeAiChatLifecyclePersistence', () => {
   });
 
   it('returns a minimal completed result', async () => {
-    const result = await completeAiChatLifecyclePersistence(prisma, usageLedger as unknown as AiUsageLedgerService, {
-      initialized,
-      lifecycleInput,
-      providerResult,
-      selectedJournalContext: [],
-      promptVersion: AI_CHAT_PROMPT_VERSION,
-      completedAt: new Date('2026-05-02T12:00:02.000Z'),
-    });
+    const result = await completeAiChatLifecyclePersistence(prisma, usageLedger, baseInput);
 
     expect(result).toEqual({
       status: 'COMPLETED',
@@ -338,17 +348,10 @@ describe('completeAiChatLifecyclePersistence', () => {
   it('retries a P2002 assistant sequence conflict once', async () => {
     messageCreateMock.mockRejectedValueOnce(createSequenceConflictError());
 
-    const result = await completeAiChatLifecyclePersistence(prisma, usageLedger as unknown as AiUsageLedgerService, {
-      initialized,
-      lifecycleInput,
-      providerResult,
-      selectedJournalContext: [],
-      promptVersion: AI_CHAT_PROMPT_VERSION,
-      completedAt: new Date('2026-05-02T12:00:02.000Z'),
-    });
+    const result = await completeAiChatLifecyclePersistence(prisma, usageLedger, baseInput);
 
     expect(result.status).toBe('COMPLETED');
-    expect(transactionMock).toHaveBeenCalledTimes(2);
+    expect(transactionSpy).toHaveBeenCalledTimes(2);
     expect(messageCreateMock).toHaveBeenCalledTimes(2);
   });
 
@@ -357,7 +360,7 @@ describe('completeAiChatLifecyclePersistence', () => {
     messageCreateMock.mockRejectedValue(wrongTargetError);
 
     await expect(
-      completeAiChatLifecyclePersistence(prisma, usageLedger as unknown as AiUsageLedgerService, {
+      completeAiChatLifecyclePersistence(prisma, usageLedger, {
         initialized,
         lifecycleInput,
         providerResult,
@@ -367,7 +370,7 @@ describe('completeAiChatLifecyclePersistence', () => {
       }),
     ).rejects.toBe(wrongTargetError);
 
-    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(transactionSpy).toHaveBeenCalledTimes(1);
   });
 
   it('does not retry arbitrary persistence errors', async () => {
@@ -375,7 +378,7 @@ describe('completeAiChatLifecyclePersistence', () => {
     messageCreateMock.mockRejectedValue(persistenceError);
 
     await expect(
-      completeAiChatLifecyclePersistence(prisma, usageLedger as unknown as AiUsageLedgerService, {
+      completeAiChatLifecyclePersistence(prisma, usageLedger, {
         initialized,
         lifecycleInput,
         providerResult,
@@ -385,6 +388,31 @@ describe('completeAiChatLifecyclePersistence', () => {
       }),
     ).rejects.toBe(persistenceError);
 
-    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(transactionSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses sequence 1 when thread has no previous messages', async () => {
+    messageFindFirstMock.mockResolvedValueOnce(null);
+
+    await persistInTransaction();
+
+    expect(messageCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          sequence: 1,
+        }),
+      }),
+    );
+  });
+
+  it('throws the final sequence conflict when retry is exhausted', async () => {
+    const firstError = createSequenceConflictError();
+    const secondError = createSequenceConflictError();
+
+    messageCreateMock.mockRejectedValueOnce(firstError).mockRejectedValueOnce(secondError);
+
+    await expect(persist()).rejects.toBe(secondError);
+
+    expect(transactionSpy).toHaveBeenCalledTimes(2);
   });
 });

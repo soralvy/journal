@@ -13,7 +13,7 @@ import {
   CreateInitialAiChatPersistenceInput,
   ResolvedAiChatLifecycleInput,
 } from './ai-chat-lifecycle.types';
-import { countAiChatMessageChars } from './ai-chat-lifecycle-input';
+import { countAiChatMessageCodePoints } from './ai-chat-lifecycle-input';
 import { mapAiProviderNameToDbProvider } from './ai-provider.port';
 
 export const AI_CHAT_PROMPT_VERSION = 'journal-chat-v1';
@@ -209,7 +209,7 @@ const createUserMessage = async (
       userId: input.userId,
       role: AiChatMessageRole.USER,
       content: input.message,
-      contentCharCount: countAiChatMessageChars(input.message),
+      contentCharCount: countAiChatMessageCodePoints(input.message),
       sequence,
       contentRetentionUntil,
       contentRetentionStatus: AiContentRetentionStatus.ACTIVE,

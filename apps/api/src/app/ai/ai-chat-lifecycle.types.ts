@@ -1,6 +1,7 @@
-import type { AiEnvironment, Prisma } from '@repo/database';
+import type { AiEnvironment, AiGeneration, Prisma } from '@repo/database';
 
 import type { AiProviderName } from './ai-provider.port';
+import { AiUsageLogTransactionClient, WriteAiUsageLogInput } from './ai-usage-ledger.service';
 
 export const AI_CHAT_FAILURE_TYPES = {
   RETRIEVAL_ERROR: 'RETRIEVAL_ERROR',
@@ -83,4 +84,18 @@ export interface AiChatFailurePersistencePrismaClient {
   $transaction<T>(callback: (tx: AiChatFailurePersistenceTransactionClient) => Promise<T>): Promise<T>;
 }
 
-export type AiChatFailurePersistenceTransactionClient = Pick<Prisma.TransactionClient, 'aiGeneration' | 'aiUsageLog'>;
+export interface AiChatFailureOwnTransactionClient {
+  aiGeneration: {
+    update(args: Prisma.AiGenerationUpdateArgs): Promise<AiGeneration>;
+  };
+}
+
+export type AiChatFailurePersistenceTransactionClient = AiChatFailureOwnTransactionClient & AiUsageLogTransactionClient;
+
+export interface AiChatFailurePersistencePrismaClient {
+  $transaction<T>(callback: (tx: AiChatFailurePersistenceTransactionClient) => Promise<T>): Promise<T>;
+}
+
+export interface AiChatFailurePersistenceUsageLedger {
+  writeUsageLogInTransaction(tx: AiUsageLogTransactionClient, input: WriteAiUsageLogInput): Promise<unknown>;
+}

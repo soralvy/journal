@@ -9,9 +9,9 @@ import {
 
 import { isMessageSequenceConflictError } from './ai-chat-initial-persistence';
 import type { AiChatInitializedResult, ResolvedAiChatLifecycleInput } from './ai-chat-lifecycle.types';
-import { countAiChatMessageChars } from './ai-chat-lifecycle-input';
+import { countAiChatMessageCodePoints } from './ai-chat-lifecycle-input';
 import type { AiProviderGenerateResult } from './ai-provider.port';
-import type { AiUsageLedgerService } from './ai-usage-ledger.service';
+import type { AiUsageLogTransactionClient, WriteAiUsageLogInput } from './ai-usage-ledger.service';
 import type { SelectedJournalContextItem } from './journal-context.types';
 
 const THREAD_INACTIVITY_MS = 24 * 60 * 60 * 1000;
@@ -40,16 +40,37 @@ export interface AiChatCompletionPersistencePrismaClient {
   $transaction<T>(callback: (tx: AiChatCompletionPersistenceTransactionClient) => Promise<T>): Promise<T>;
 }
 
-export type AiChatCompletionPersistenceTransactionClient = Pick<
-  Prisma.TransactionClient,
-  'aiChatMessage' | 'aiGeneration' | 'aiJournalContextUse' | 'aiUsageLog' | 'aiChatThread'
->;
-
 interface AssistantMessageReference {
   id: string;
   sequence: number;
 }
 
+interface AiChatCompletionOwnTransactionClient {
+  aiChatMessage: {
+    findFirst(args: Prisma.AiChatMessageFindFirstArgs): Promise<{ sequence: number } | null>;
+    create(args: Prisma.AiChatMessageCreateArgs): Promise<AssistantMessageReference>;
+  };
+  aiGeneration: {
+    update(args: Prisma.AiGenerationUpdateArgs): Promise<unknown>;
+  };
+  aiJournalContextUse: {
+    createMany(args: Prisma.AiJournalContextUseCreateManyArgs): Promise<unknown>;
+  };
+  aiChatThread: {
+    update(args: Prisma.AiChatThreadUpdateArgs): Promise<unknown>;
+  };
+}
+
+export type AiChatCompletionPersistenceTransactionClient = AiChatCompletionOwnTransactionClient &
+  AiUsageLogTransactionClient;
+
+export interface AiChatCompletionPersistencePrismaClient {
+  $transaction<T>(callback: (tx: AiChatCompletionPersistenceTransactionClient) => Promise<T>): Promise<T>;
+}
+
+export interface AiChatCompletionPersistenceUsageLedger {
+  writeUsageLogInTransaction(tx: AiUsageLogTransactionClient, input: WriteAiUsageLogInput): Promise<unknown>;
+}
 const addMilliseconds = (date: Date, milliseconds: number): Date => {
   return new Date(date.getTime() + milliseconds);
 };
@@ -68,7 +89,7 @@ const getLatencyMs = (startedAt: Date, completedAt: Date): number => {
 
 export const completeAiChatLifecyclePersistence = async (
   prisma: AiChatCompletionPersistencePrismaClient,
-  usageLedger: AiUsageLedgerService,
+  usageLedger: AiChatCompletionPersistenceUsageLedger,
   input: CompleteAiChatLifecycleInput,
 ): Promise<AiChatCompletedResult> => {
   for (let attempt = 1; attempt <= COMPLETION_PERSISTENCE_MAX_ATTEMPTS; attempt += 1) {
@@ -88,7 +109,7 @@ export const completeAiChatLifecyclePersistence = async (
 
 export const completeAiChatLifecyclePersistenceInTransaction = async (
   tx: AiChatCompletionPersistenceTransactionClient,
-  usageLedger: AiUsageLedgerService,
+  usageLedger: AiChatCompletionPersistenceUsageLedger,
   input: CompleteAiChatLifecycleInput,
 ): Promise<AiChatCompletedResult> => {
   const latencyMs = getLatencyMs(input.initialized.lifecycleStartedAt, input.completedAt);
@@ -168,7 +189,7 @@ const createAssistantMessage = async (
       userId: input.lifecycleInput.userId,
       role: AiChatMessageRole.ASSISTANT,
       content: input.providerResult.text,
-      contentCharCount: countAiChatMessageChars(input.providerResult.text),
+      contentCharCount: countAiChatMessageCodePoints(input.providerResult.text),
       sequence,
       contentRetentionUntil,
       contentRetentionStatus: AiContentRetentionStatus.ACTIVE,

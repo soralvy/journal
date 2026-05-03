@@ -41,6 +41,10 @@ export interface AiProviderPort {
   generate(input: AiProviderGenerateInput): Promise<AiProviderGenerateResult>;
 }
 
+const assertNever = (value: never): never => {
+  throw new Error(`Unsupported AI provider: ${String(value)}`);
+};
+
 export const mapAiProviderNameToDbProvider = (providerName: AiProviderName): AiProvider => {
   switch (providerName) {
     case 'FAKE': {
@@ -48,6 +52,9 @@ export const mapAiProviderNameToDbProvider = (providerName: AiProviderName): AiP
     }
     case 'OPENAI': {
       return AiProvider.OPENAI;
+    }
+    default: {
+      return assertNever(providerName);
     }
   }
 };
