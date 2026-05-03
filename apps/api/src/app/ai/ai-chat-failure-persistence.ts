@@ -1,7 +1,6 @@
 import { AiBudgetCheckResult, AiGenerationStatus, AiUsageLogStatus } from '@repo/database';
 
-import { AI_CHAT_PROMPT_VERSION } from './ai-chat-initial-persistence';
-import {
+import type {
   AiChatFailedResult,
   AiChatFailurePersistencePrismaClient,
   AiChatFailurePersistenceTransactionClient,
@@ -45,9 +44,9 @@ export const failAiChatLifecyclePersistenceInTransaction = async (
     threadId: input.initialized.threadId,
     generationId: input.initialized.generationId,
     environment: input.lifecycleInput.environment,
-    provider: input.provider,
+    providerName: input.providerName,
     model: input.requestedModel,
-    promptVersion: AI_CHAT_PROMPT_VERSION,
+    promptVersion: input.promptVersion,
     status: AiUsageLogStatus.FAILED,
     latencyMs,
     budgetCheckResult: AiBudgetCheckResult.ALLOWED,

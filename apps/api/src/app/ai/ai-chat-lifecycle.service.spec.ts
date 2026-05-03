@@ -278,8 +278,15 @@ describe('AiChatLifecycleService', () => {
       budgetCheckResult: AiBudgetCheckResult.APP_BUDGET_EXCEEDED,
       refusalReason: 'budget exhausted',
     });
+    expect(writeUsageLogMock).toHaveBeenCalledTimes(1);
     expect(transactionMock).not.toHaveBeenCalled();
+    expect(threadUpdateManyMock).not.toHaveBeenCalled();
+    expect(threadFindFirstMock).not.toHaveBeenCalled();
+    expect(threadCreateMock).not.toHaveBeenCalled();
+    expect(messageCreateMock).not.toHaveBeenCalled();
+    expect(generationCreateMock).not.toHaveBeenCalled();
     expect(selectJournalContextMock).not.toHaveBeenCalled();
+    expect(messageFindManyMock).not.toHaveBeenCalled();
     expect(providerGenerateMock).not.toHaveBeenCalled();
   });
 
@@ -437,6 +444,9 @@ describe('AiChatLifecycleService', () => {
     });
     expect(getCompletionUsageLogInput()).toEqual(
       expect.objectContaining({
+        provider: 'FAKE',
+        model: AI_DEFAULT_MODEL,
+        promptVersion: 'journal-chat-v1',
         status: AiUsageLogStatus.FAILED,
         budgetCheckResult: AiBudgetCheckResult.ALLOWED,
         refusalReason: 'AI chat failed before generating a response.',
@@ -545,6 +555,9 @@ describe('AiChatLifecycleService', () => {
     });
     expect(getCompletionUsageLogInput()).toEqual(
       expect.objectContaining({
+        provider: 'FAKE',
+        model: AI_DEFAULT_MODEL,
+        promptVersion: 'journal-chat-v1',
         status: AiUsageLogStatus.FAILED,
         refusalReason: 'AI provider failed to generate a response.',
       }),

@@ -9,12 +9,12 @@ import {
   Prisma,
 } from '@repo/database';
 
-import {
-  AI_CHAT_PROMPT_VERSION,
-  type AiChatInitialPersistenceTransactionClient,
-  createInitialAiChatPersistenceAnchor,
-} from './ai-chat-initial-persistence';
-import type { ResolvedAiChatLifecycleInput } from './ai-chat-lifecycle-input';
+import { AI_CHAT_PROMPT_VERSION, createInitialAiChatPersistenceAnchor } from './ai-chat-initial-persistence';
+import type {
+  AiChatInitialPersistenceTransactionClient,
+  CreateInitialAiChatPersistenceInput,
+  ResolvedAiChatLifecycleInput,
+} from './ai-chat-lifecycle.types';
 import { AI_DEFAULT_MODEL, AI_MAX_OUTPUT_TOKENS } from './ai-model-policy';
 
 type TransactionCallback<T> = (tx: typeof transactionClient) => Promise<T>;
@@ -55,6 +55,19 @@ const createResolvedInput = (overrides: Partial<ResolvedAiChatLifecycleInput> = 
   providerCallsEnabled: true,
   lifecycleStartedAt: new Date('2026-05-02T12:00:00.000Z'),
   ...overrides,
+});
+
+const createInitialPersistenceInput = (
+  lifecycleOverrides: Partial<ResolvedAiChatLifecycleInput> = {},
+): CreateInitialAiChatPersistenceInput => ({
+  lifecycleInput: createResolvedInput(lifecycleOverrides),
+  generationPolicy: {
+    provider: AiProvider.FAKE,
+    providerName: 'FAKE',
+    requestedModel: AI_DEFAULT_MODEL,
+    maxOutputTokens: AI_MAX_OUTPUT_TOKENS,
+    promptVersion: AI_CHAT_PROMPT_VERSION,
+  },
 });
 
 const createSequenceConflictError = (): Prisma.PrismaClientKnownRequestError => {
@@ -100,7 +113,7 @@ describe('createInitialAiChatPersistenceAnchor', () => {
   });
 
   it('creates a new thread when none is active', async () => {
-    const input = createResolvedInput();
+    const input = createInitialPersistenceInput();
 
     const result = await createInitialAiChatPersistenceAnchor(prismaClient, input);
 
@@ -110,14 +123,14 @@ describe('createInitialAiChatPersistenceAnchor', () => {
       userMessageId: 'user-message-id',
       generationId: 'generation-id',
       userMessageSequence: 1,
-      lifecycleStartedAt: input.lifecycleStartedAt,
+      lifecycleStartedAt: input.lifecycleInput.lifecycleStartedAt,
     });
     expect(threadCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId: 'user-id',
         status: AiChatThreadStatus.ACTIVE,
         title: null,
-        lastMessageAt: input.lifecycleStartedAt,
+        lastMessageAt: input.lifecycleInput.lifecycleStartedAt,
         contentRetentionStatus: AiContentRetentionStatus.ACTIVE,
       }),
       select: {
@@ -129,7 +142,7 @@ describe('createInitialAiChatPersistenceAnchor', () => {
   it('reuses an active unexpired thread', async () => {
     threadFindFirstMock.mockResolvedValue({ id: 'thread-active' });
 
-    const result = await createInitialAiChatPersistenceAnchor(prismaClient, createResolvedInput());
+    const result = await createInitialAiChatPersistenceAnchor(prismaClient, createInitialPersistenceInput());
 
     expect(result.status).toBe('INITIALIZED');
     expect(result.threadId).toBe('thread-active');
@@ -144,7 +157,7 @@ describe('createInitialAiChatPersistenceAnchor', () => {
   });
 
   it('marks expired active threads inactive before selecting the active thread', async () => {
-    const input = createResolvedInput();
+    const input = createInitialPersistenceInput();
 
     await createInitialAiChatPersistenceAnchor(prismaClient, input);
 
@@ -154,7 +167,7 @@ describe('createInitialAiChatPersistenceAnchor', () => {
         status: AiChatThreadStatus.ACTIVE,
         deletedAt: null,
         inactivityBoundaryAt: {
-          lte: input.lifecycleStartedAt,
+          lte: input.lifecycleInput.lifecycleStartedAt,
         },
       },
       data: {
@@ -164,7 +177,7 @@ describe('createInitialAiChatPersistenceAnchor', () => {
   });
 
   it('creates user message and RUNNING generation in the initial transaction', async () => {
-    await createInitialAiChatPersistenceAnchor(prismaClient, createResolvedInput());
+    await createInitialAiChatPersistenceAnchor(prismaClient, createInitialPersistenceInput());
 
     expect(transactionMock).toHaveBeenCalledTimes(1);
     expect(getTransactionCallback()).toEqual(expect.any(Function));
@@ -181,7 +194,7 @@ describe('createInitialAiChatPersistenceAnchor', () => {
   });
 
   it('uses lifecycleStartedAt for thread timestamps, retention, message retention, and generation start', async () => {
-    const input = createResolvedInput();
+    const input = createInitialPersistenceInput();
     const inactivityBoundaryAt = new Date('2026-05-03T12:00:00.000Z');
     const contentRetentionUntil = new Date('2026-06-01T12:00:00.000Z');
 
@@ -189,7 +202,7 @@ describe('createInitialAiChatPersistenceAnchor', () => {
 
     expect(threadCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        lastMessageAt: input.lifecycleStartedAt,
+        lastMessageAt: input.lifecycleInput.lifecycleStartedAt,
         inactivityBoundaryAt,
         contentRetentionUntil,
       }),
@@ -208,7 +221,7 @@ describe('createInitialAiChatPersistenceAnchor', () => {
     });
     expect(generationCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        startedAt: input.lifecycleStartedAt,
+        startedAt: input.lifecycleInput.lifecycleStartedAt,
       }),
       select: {
         id: true,
@@ -219,7 +232,7 @@ describe('createInitialAiChatPersistenceAnchor', () => {
         id: 'thread-new',
       },
       data: {
-        lastMessageAt: input.lifecycleStartedAt,
+        lastMessageAt: input.lifecycleInput.lifecycleStartedAt,
         inactivityBoundaryAt,
         contentRetentionUntil,
       },
@@ -227,7 +240,10 @@ describe('createInitialAiChatPersistenceAnchor', () => {
   });
 
   it('persists the trimmed user message content provided by input resolution', async () => {
-    await createInitialAiChatPersistenceAnchor(prismaClient, createResolvedInput({ message: 'trimmed message' }));
+    await createInitialAiChatPersistenceAnchor(
+      prismaClient,
+      createInitialPersistenceInput({ message: 'trimmed message' }),
+    );
 
     expect(messageCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -246,7 +262,7 @@ describe('createInitialAiChatPersistenceAnchor', () => {
     messageFindFirstMock.mockResolvedValue({ sequence: 4 });
     messageCreateMock.mockResolvedValue({ id: 'user-message-id', sequence: 5 });
 
-    const result = await createInitialAiChatPersistenceAnchor(prismaClient, createResolvedInput());
+    const result = await createInitialAiChatPersistenceAnchor(prismaClient, createInitialPersistenceInput());
 
     expect(result.status).toBe('INITIALIZED');
     expect(result.userMessageSequence).toBe(5);
@@ -262,7 +278,7 @@ describe('createInitialAiChatPersistenceAnchor', () => {
   });
 
   it('creates the RUNNING generation with fake provider and MVP model policy', async () => {
-    await createInitialAiChatPersistenceAnchor(prismaClient, createResolvedInput());
+    await createInitialAiChatPersistenceAnchor(prismaClient, createInitialPersistenceInput());
 
     expect(generationCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -284,7 +300,7 @@ describe('createInitialAiChatPersistenceAnchor', () => {
   it('retries a P2002 message sequence conflict once', async () => {
     messageCreateMock.mockRejectedValueOnce(createSequenceConflictError());
 
-    const result = await createInitialAiChatPersistenceAnchor(prismaClient, createResolvedInput());
+    const result = await createInitialAiChatPersistenceAnchor(prismaClient, createInitialPersistenceInput());
 
     expect(result.status).toBe('INITIALIZED');
     expect(transactionMock).toHaveBeenCalledTimes(2);
@@ -294,7 +310,9 @@ describe('createInitialAiChatPersistenceAnchor', () => {
   it('stops after two P2002 message sequence conflict attempts', async () => {
     messageCreateMock.mockRejectedValue(createSequenceConflictError());
 
-    await expect(createInitialAiChatPersistenceAnchor(prismaClient, createResolvedInput())).rejects.toMatchObject({
+    await expect(
+      createInitialAiChatPersistenceAnchor(prismaClient, createInitialPersistenceInput()),
+    ).rejects.toMatchObject({
       code: 'P2002',
     });
 
@@ -305,7 +323,7 @@ describe('createInitialAiChatPersistenceAnchor', () => {
     const persistenceError = new Error('database unavailable');
     messageCreateMock.mockRejectedValue(persistenceError);
 
-    await expect(createInitialAiChatPersistenceAnchor(prismaClient, createResolvedInput())).rejects.toBe(
+    await expect(createInitialAiChatPersistenceAnchor(prismaClient, createInitialPersistenceInput())).rejects.toBe(
       persistenceError,
     );
 

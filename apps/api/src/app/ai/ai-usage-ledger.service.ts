@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import type { AiEnvironment, AiUsageLog, AiUsageLogStatus, Prisma } from '@repo/database';
-import { AiBudgetCheckResult, AiContentRetentionStatus, AiFeature, AiProvider } from '@repo/database';
+import { AiBudgetCheckResult, AiContentRetentionStatus, AiFeature } from '@repo/database';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { AiCostEstimatorService } from './ai-cost-estimator.service';
-import { type AiProviderName, type AiTokenUsage } from './ai-provider.port';
+import { type AiProviderName, type AiTokenUsage, mapAiProviderNameToDbProvider } from './ai-provider.port';
 
 export interface WriteAiUsageLogInput {
   userId?: string;
@@ -12,7 +12,7 @@ export interface WriteAiUsageLogInput {
   generationId?: string;
   environment: AiEnvironment;
   feature?: AiFeature;
-  provider?: AiProviderName;
+  providerName?: AiProviderName;
   model?: string;
   promptVersion?: string;
   status: AiUsageLogStatus;
@@ -24,14 +24,6 @@ export interface WriteAiUsageLogInput {
 }
 
 type AiUsageLogTransactionClient = Pick<Prisma.TransactionClient, 'aiUsageLog'>;
-
-const mapProvider = (provider: AiProviderName | undefined): AiProvider | undefined => {
-  if (provider === undefined) {
-    return undefined;
-  }
-
-  return provider === 'FAKE' ? AiProvider.FAKE : AiProvider.OPENAI;
-};
 
 const getTotalTokens = (usage: AiTokenUsage): number => {
   return usage.totalTokens;
@@ -46,7 +38,7 @@ export class InvalidAiUsageLogInputError extends Error {
 
 const estimateUsageCostMicroUsd = (
   usage: AiTokenUsage | undefined,
-  provider: AiProviderName | undefined,
+  providerName: AiProviderName | undefined,
   model: string | undefined,
   costEstimator: AiCostEstimatorService,
 ): number => {
@@ -54,12 +46,12 @@ const estimateUsageCostMicroUsd = (
     return 0;
   }
 
-  if (provider === undefined) {
-    throw new InvalidAiUsageLogInputError('provider is required when usage is provided.');
+  if (providerName === undefined) {
+    throw new InvalidAiUsageLogInputError('providerName is required when usage is provided.');
   }
 
   return costEstimator.estimateCostMicroUsd({
-    provider,
+    providerName,
     model,
     usage,
   });
@@ -71,11 +63,7 @@ const buildAiUsageLogCreateData = (
 ): Prisma.AiUsageLogUncheckedCreateInput => {
   const usage = input.usage;
 
-  if (usage !== undefined && input.provider === undefined) {
-    throw new InvalidAiUsageLogInputError('provider is required when usage is provided.');
-  }
-
-  const estimatedCostMicroUsd = estimateUsageCostMicroUsd(input.usage, input.provider, input.model, costEstimator);
+  const estimatedCostMicroUsd = estimateUsageCostMicroUsd(input.usage, input.providerName, input.model, costEstimator);
 
   return {
     userId: input.userId,
@@ -83,7 +71,7 @@ const buildAiUsageLogCreateData = (
     generationId: input.generationId,
     environment: input.environment,
     feature: input.feature ?? AiFeature.JOURNAL_CHAT,
-    provider: mapProvider(input.provider),
+    provider: input.providerName === undefined ? undefined : mapAiProviderNameToDbProvider(input.providerName),
     model: input.model,
     promptVersion: input.promptVersion,
     status: input.status,

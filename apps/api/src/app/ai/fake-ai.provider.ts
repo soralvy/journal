@@ -15,7 +15,7 @@ const createFakeGenerateResult = (input: AiProviderGenerateInput): AiProviderGen
   const outputTokens = 1;
 
   return {
-    provider: 'FAKE',
+    providerName: 'FAKE',
     model: input.model,
     text,
     finishReason: 'stop',

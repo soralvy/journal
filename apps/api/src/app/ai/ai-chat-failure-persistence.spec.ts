@@ -3,7 +3,7 @@ import { AiBudgetCheckResult, AiEnvironment, AiGenerationStatus, AiUsageLogStatu
 
 import { failAiChatLifecyclePersistence } from './ai-chat-failure-persistence';
 import { AI_CHAT_PROMPT_VERSION } from './ai-chat-initial-persistence';
-import {
+import type {
   AiChatFailurePersistenceTransactionClient,
   AiChatInitializedResult,
   ResolvedAiChatLifecycleInput,
@@ -77,6 +77,7 @@ describe('failAiChatLifecyclePersistence', () => {
       errorType: 'PROVIDER_ERROR',
       safeErrorMessage: 'AI provider failed to generate a response.',
       requestedModel: 'gpt-5.4-nano',
+      promptVersion: AI_CHAT_PROMPT_VERSION,
       provider: 'FAKE',
     });
 
@@ -102,6 +103,7 @@ describe('failAiChatLifecyclePersistence', () => {
       errorType: 'RETRIEVAL_ERROR',
       safeErrorMessage: 'AI chat failed before generating a response.',
       requestedModel: 'gpt-5.4-nano',
+      promptVersion: AI_CHAT_PROMPT_VERSION,
       provider: 'FAKE',
     });
 
@@ -131,6 +133,7 @@ describe('failAiChatLifecyclePersistence', () => {
       errorType: 'PROVIDER_ERROR',
       safeErrorMessage: 'AI provider failed to generate a response.',
       requestedModel: 'gpt-5.4-nano',
+      promptVersion: AI_CHAT_PROMPT_VERSION,
       provider: 'FAKE',
     });
     const storedText = JSON.stringify([generationUpdateMock.mock.calls, writeUsageLogInTransactionMock.mock.calls]);
@@ -149,6 +152,7 @@ describe('failAiChatLifecyclePersistence', () => {
       errorType: 'PROVIDER_ERROR',
       safeErrorMessage: 'AI provider failed to generate a response.',
       requestedModel: 'gpt-5.4-nano',
+      promptVersion: AI_CHAT_PROMPT_VERSION,
       provider: 'FAKE',
     });
 

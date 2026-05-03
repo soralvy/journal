@@ -3,7 +3,6 @@ import {
   AiChatThreadStatus,
   AiContentRetentionStatus,
   AiGenerationStatus,
-  AiProvider,
   Prisma,
 } from '@repo/database';
 
@@ -11,10 +10,11 @@ import {
   AiChatInitializedResult,
   AiChatInitialPersistencePrismaClient,
   AiChatInitialPersistenceTransactionClient,
+  CreateInitialAiChatPersistenceInput,
   ResolvedAiChatLifecycleInput,
 } from './ai-chat-lifecycle.types';
 import { countAiChatMessageChars } from './ai-chat-lifecycle-input';
-import { getMvpAiModelPolicy } from './ai-model-policy';
+import { mapAiProviderNameToDbProvider } from './ai-provider.port';
 
 export const AI_CHAT_PROMPT_VERSION = 'journal-chat-v1';
 
@@ -78,7 +78,7 @@ export const isMessageSequenceConflictError = (error: unknown): boolean => {
 
 export const createInitialAiChatPersistenceAnchor = async (
   prisma: AiChatInitialPersistencePrismaClient,
-  input: ResolvedAiChatLifecycleInput,
+  input: CreateInitialAiChatPersistenceInput,
 ): Promise<AiChatInitializedResult> => {
   for (let attempt = 1; attempt <= INITIAL_PERSISTENCE_MAX_ATTEMPTS; attempt += 1) {
     try {
@@ -97,12 +97,13 @@ export const createInitialAiChatPersistenceAnchor = async (
 
 export const createInitialAiChatPersistenceAnchorInTransaction = async (
   tx: AiChatInitialPersistenceTransactionClient,
-  input: ResolvedAiChatLifecycleInput,
+  input: CreateInitialAiChatPersistenceInput,
 ): Promise<AiChatInitializedResult> => {
-  const inactivityBoundaryAt = getInactivityBoundaryAt(input.lifecycleStartedAt);
-  const contentRetentionUntil = getContentRetentionUntil(input.lifecycleStartedAt);
-  const thread = await findOrCreateActiveThread(tx, input, inactivityBoundaryAt, contentRetentionUntil);
-  const userMessage = await createUserMessage(tx, input, thread.id, contentRetentionUntil);
+  const lifecycleInput = input.lifecycleInput;
+  const inactivityBoundaryAt = getInactivityBoundaryAt(lifecycleInput.lifecycleStartedAt);
+  const contentRetentionUntil = getContentRetentionUntil(lifecycleInput.lifecycleStartedAt);
+  const thread = await findOrCreateActiveThread(tx, lifecycleInput, inactivityBoundaryAt, contentRetentionUntil);
+  const userMessage = await createUserMessage(tx, lifecycleInput, thread.id, contentRetentionUntil);
   const generation = await createRunningGeneration(tx, input, thread.id, userMessage.id);
 
   await tx.aiChatThread.update({
@@ -110,7 +111,7 @@ export const createInitialAiChatPersistenceAnchorInTransaction = async (
       id: thread.id,
     },
     data: {
-      lastMessageAt: input.lifecycleStartedAt,
+      lastMessageAt: lifecycleInput.lifecycleStartedAt,
       inactivityBoundaryAt,
       contentRetentionUntil,
     },
@@ -122,7 +123,7 @@ export const createInitialAiChatPersistenceAnchorInTransaction = async (
     userMessageId: userMessage.id,
     generationId: generation.id,
     userMessageSequence: userMessage.sequence,
-    lifecycleStartedAt: input.lifecycleStartedAt,
+    lifecycleStartedAt: lifecycleInput.lifecycleStartedAt,
   };
 };
 
@@ -222,23 +223,21 @@ const createUserMessage = async (
 
 const createRunningGeneration = async (
   tx: AiChatInitialPersistenceTransactionClient,
-  input: ResolvedAiChatLifecycleInput,
+  input: CreateInitialAiChatPersistenceInput,
   threadId: string,
   userMessageId: string,
 ): Promise<AiGenerationReference> => {
-  const modelPolicy = getMvpAiModelPolicy();
-
   return tx.aiGeneration.create({
     data: {
-      userId: input.userId,
+      userId: input.lifecycleInput.userId,
       threadId,
       userMessageId,
-      provider: AiProvider.FAKE,
-      requestedModel: modelPolicy.model,
-      promptVersion: AI_CHAT_PROMPT_VERSION,
+      provider: mapAiProviderNameToDbProvider(input.generationPolicy.providerName),
+      requestedModel: input.generationPolicy.requestedModel,
+      promptVersion: input.generationPolicy.promptVersion,
       status: AiGenerationStatus.RUNNING,
-      startedAt: input.lifecycleStartedAt,
-      maxOutputTokens: modelPolicy.maxOutputTokens,
+      startedAt: input.lifecycleInput.lifecycleStartedAt,
+      maxOutputTokens: input.generationPolicy.maxOutputTokens,
     },
     select: {
       id: true,

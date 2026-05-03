@@ -5,10 +5,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { type AiBudgetDecision, AiBudgetService } from './ai-budget.service';
 import { type AiChatCompletedResult, completeAiChatLifecyclePersistence } from './ai-chat-completion-persistence';
 import { failAiChatLifecyclePersistence } from './ai-chat-failure-persistence';
-import { createInitialAiChatPersistenceAnchor } from './ai-chat-initial-persistence';
-import {
+import { AI_CHAT_PROMPT_VERSION, createInitialAiChatPersistenceAnchor } from './ai-chat-initial-persistence';
+import type {
   AiChatFailedResult,
   AiChatFailureType,
+  AiChatGenerationRequestPolicy,
   AiChatInitializedResult,
   ResolvedAiChatLifecycleInput,
   RunAiChatLifecycleInput,
@@ -30,18 +31,7 @@ export interface AiChatRefusedResult {
   lifecycleStartedAt: Date;
 }
 
-export type AiChatLifecycleResult =
-  | AiChatCompletedResult
-  | AiChatInitializedResult
-  | AiChatRefusedResult
-  | AiChatFailedResult;
-
-export class AiChatLifecycleNotImplementedError extends Error {
-  constructor() {
-    super('Allowed AI chat lifecycle is not implemented in this phase.');
-    this.name = 'AiChatLifecycleNotImplementedError';
-  }
-}
+export type AiChatLifecycleResult = AiChatCompletedResult | AiChatRefusedResult | AiChatFailedResult;
 
 @Injectable()
 export class AiChatLifecycleService {
@@ -66,12 +56,16 @@ export class AiChatLifecycleService {
       return this.refuseRequest(resolvedInput, budgetDecision);
     }
 
-    const initialized = await createInitialAiChatPersistenceAnchor(this.prisma, resolvedInput);
+    const generationPolicy = createAiChatGenerationRequestPolicy();
+    const initialized = await createInitialAiChatPersistenceAnchor(this.prisma, {
+      lifecycleInput: resolvedInput,
+      generationPolicy,
+    });
 
     try {
-      return await this.completeSuccessfulLifecycle(resolvedInput, initialized);
+      return await this.completeSuccessfulLifecycle(resolvedInput, initialized, generationPolicy);
     } catch (error) {
-      return this.failHandledLifecycle(resolvedInput, initialized, error);
+      return this.failHandledLifecycle(resolvedInput, initialized, generationPolicy, error);
     }
   }
 
@@ -87,7 +81,6 @@ export class AiChatLifecycleService {
       status: mapAiChatRefusalStatus(budgetDecision.budgetCheckResult),
       budgetCheckResult: budgetDecision.budgetCheckResult,
       refusalReason,
-      provider: 'FAKE',
     });
 
     return {
@@ -102,18 +95,19 @@ export class AiChatLifecycleService {
   private async completeSuccessfulLifecycle(
     input: ResolvedAiChatLifecycleInput,
     initialized: AiChatInitializedResult,
+    generationPolicy: AiChatGenerationRequestPolicy,
   ): Promise<AiChatCompletedResult> {
-    const modelPolicy = getMvpAiModelPolicy();
     const selectedJournalContext = await this.selectJournalContext(input);
     const recentMessages = await this.findRecentMessages(input, initialized);
     const messages = this.assembleProviderMessages(input, selectedJournalContext.items, recentMessages);
-    const providerResult = await this.generateProviderResponse(messages, modelPolicy);
+    const providerResult = await this.generateProviderResponse(messages, generationPolicy);
 
     return completeAiChatLifecyclePersistence(this.prisma, this.usageLedger, {
       initialized,
       lifecycleInput: input,
       providerResult,
       selectedJournalContext: selectedJournalContext.items,
+      promptVersion: generationPolicy.promptVersion,
       completedAt: new Date(),
     });
   }
@@ -168,13 +162,13 @@ export class AiChatLifecycleService {
 
   private async generateProviderResponse(
     messages: Parameters<AiProviderPort['generate']>[0]['messages'],
-    modelPolicy: ReturnType<typeof getMvpAiModelPolicy>,
+    generationPolicy: AiChatGenerationRequestPolicy,
   ) {
     try {
       return await this.provider.generate({
         messages,
-        model: modelPolicy.model,
-        maxOutputTokens: modelPolicy.maxOutputTokens,
+        model: generationPolicy.requestedModel,
+        maxOutputTokens: generationPolicy.maxOutputTokens,
       });
     } catch (error) {
       throw new AiChatPostInitialFailureError('PROVIDER_ERROR', 'AI provider failed to generate a response.', error);
@@ -184,6 +178,7 @@ export class AiChatLifecycleService {
   private async failHandledLifecycle(
     input: ResolvedAiChatLifecycleInput,
     initialized: AiChatInitializedResult,
+    generationPolicy: AiChatGenerationRequestPolicy,
     error: unknown,
   ): Promise<AiChatFailedResult> {
     if (!(error instanceof AiChatPostInitialFailureError)) {
@@ -196,11 +191,23 @@ export class AiChatLifecycleService {
       failureAt: new Date(),
       errorType: error.errorType,
       safeErrorMessage: error.safeErrorMessage,
-      requestedModel: getMvpAiModelPolicy().model,
-      provider: 'FAKE',
+      requestedModel: generationPolicy.requestedModel,
+      promptVersion: generationPolicy.promptVersion,
+      providerName: generationPolicy.providerName,
     });
   }
 }
+
+const createAiChatGenerationRequestPolicy = (): AiChatGenerationRequestPolicy => {
+  const modelPolicy = getMvpAiModelPolicy();
+
+  return {
+    providerName: 'FAKE',
+    requestedModel: modelPolicy.model,
+    maxOutputTokens: modelPolicy.maxOutputTokens,
+    promptVersion: AI_CHAT_PROMPT_VERSION,
+  };
+};
 
 class AiChatPostInitialFailureError extends Error {
   constructor(

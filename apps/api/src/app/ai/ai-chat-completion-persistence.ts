@@ -7,9 +7,9 @@ import {
   Prisma,
 } from '@repo/database';
 
-import type { AiChatInitializedResult } from './ai-chat-initial-persistence';
-import { AI_CHAT_PROMPT_VERSION, isMessageSequenceConflictError } from './ai-chat-initial-persistence';
-import { countAiChatMessageChars, type ResolvedAiChatLifecycleInput } from './ai-chat-lifecycle-input';
+import { isMessageSequenceConflictError } from './ai-chat-initial-persistence';
+import type { AiChatInitializedResult, ResolvedAiChatLifecycleInput } from './ai-chat-lifecycle.types';
+import { countAiChatMessageChars } from './ai-chat-lifecycle-input';
 import type { AiProviderGenerateResult } from './ai-provider.port';
 import type { AiUsageLedgerService } from './ai-usage-ledger.service';
 import type { SelectedJournalContextItem } from './journal-context.types';
@@ -23,6 +23,7 @@ export interface CompleteAiChatLifecycleInput {
   lifecycleInput: ResolvedAiChatLifecycleInput;
   providerResult: AiProviderGenerateResult;
   selectedJournalContext: readonly SelectedJournalContextItem[];
+  promptVersion: string;
   completedAt: Date;
 }
 
@@ -114,9 +115,9 @@ export const completeAiChatLifecyclePersistenceInTransaction = async (
     threadId: input.initialized.threadId,
     generationId: input.initialized.generationId,
     environment: input.lifecycleInput.environment,
-    provider: input.providerResult.provider,
+    providerName: input.providerResult.providerName,
     model: input.providerResult.model,
-    promptVersion: AI_CHAT_PROMPT_VERSION,
+    promptVersion: input.promptVersion,
     status: AiUsageLogStatus.COMPLETED,
     usage: input.providerResult.usage,
     latencyMs,

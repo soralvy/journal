@@ -1,3 +1,5 @@
+import { AiProvider } from '@repo/database';
+
 export const AI_PROVIDER = Symbol('AI_PROVIDER');
 
 export type AiProviderName = 'FAKE' | 'OPENAI';
@@ -28,7 +30,7 @@ export interface AiProviderGenerateInput {
 }
 
 export interface AiProviderGenerateResult {
-  provider: AiProviderName;
+  providerName: AiProviderName;
   model: string;
   text: string;
   finishReason: string;
@@ -38,3 +40,14 @@ export interface AiProviderGenerateResult {
 export interface AiProviderPort {
   generate(input: AiProviderGenerateInput): Promise<AiProviderGenerateResult>;
 }
+
+export const mapAiProviderNameToDbProvider = (providerName: AiProviderName): AiProvider => {
+  switch (providerName) {
+    case 'FAKE': {
+      return AiProvider.FAKE;
+    }
+    case 'OPENAI': {
+      return AiProvider.OPENAI;
+    }
+  }
+};

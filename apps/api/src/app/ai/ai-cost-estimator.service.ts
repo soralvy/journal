@@ -12,7 +12,7 @@ const OPENAI_GPT_5_4_NANO_PRICING_MICRO_USD_PER_MILLION = {
 } as const;
 
 export interface AiCostEstimateInput {
-  provider: AiProviderName;
+  providerName: AiProviderName;
   model?: string;
   usage: AiTokenUsage;
 }
@@ -69,11 +69,11 @@ export class AiCostEstimatorService {
   estimateCostMicroUsd(input: AiCostEstimateInput): number {
     assertValidUsage(input.usage);
 
-    if (input.provider === 'FAKE') {
+    if (input.providerName === 'FAKE') {
       return 0;
     }
 
-    if (input.provider === 'OPENAI' && input.model === AI_DEFAULT_MODEL) {
+    if (input.providerName === 'OPENAI' && input.model === AI_DEFAULT_MODEL) {
       const uncachedInputTokens = input.usage.inputTokens - input.usage.cachedInputTokens;
 
       return (
@@ -86,6 +86,8 @@ export class AiCostEstimatorService {
       );
     }
 
-    throw new InvalidAiTokenUsageError(`Unsupported AI pricing target: ${input.provider}/${input.model ?? 'unknown'}`);
+    throw new InvalidAiTokenUsageError(
+      `Unsupported AI pricing target: ${input.providerName}/${input.model ?? 'unknown'}`,
+    );
   }
 }

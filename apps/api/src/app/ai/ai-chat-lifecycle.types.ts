@@ -1,6 +1,6 @@
-import { AiEnvironment, Prisma } from '@repo/database';
+import type { AiEnvironment, Prisma } from '@repo/database';
 
-import { AiProviderName } from './ai-provider.port';
+import type { AiProviderName } from './ai-provider.port';
 
 export const AI_CHAT_FAILURE_TYPES = {
   RETRIEVAL_ERROR: 'RETRIEVAL_ERROR',
@@ -40,10 +40,24 @@ export interface AiChatInitializedResult {
   userMessageSequence: number;
   lifecycleStartedAt: Date;
 }
+
+export interface AiChatGenerationRequestPolicy {
+  providerName: AiProviderName;
+  requestedModel: string;
+  maxOutputTokens: number;
+  promptVersion: string;
+}
+
+export interface CreateInitialAiChatPersistenceInput {
+  lifecycleInput: ResolvedAiChatLifecycleInput;
+  generationPolicy: AiChatGenerationRequestPolicy;
+}
+
 export type AiChatInitialPersistenceTransactionClient = Pick<
   Prisma.TransactionClient,
   'aiChatThread' | 'aiChatMessage' | 'aiGeneration'
 >;
+
 export interface AiChatInitialPersistencePrismaClient {
   $transaction<T>(callback: (tx: AiChatInitialPersistenceTransactionClient) => Promise<T>): Promise<T>;
 }
@@ -55,7 +69,8 @@ export interface FailAiChatLifecycleInput {
   errorType: AiChatFailureType;
   safeErrorMessage: string;
   requestedModel: string;
-  provider: AiProviderName;
+  promptVersion: string;
+  providerName: AiProviderName;
 }
 
 export interface AiChatFailedResult {

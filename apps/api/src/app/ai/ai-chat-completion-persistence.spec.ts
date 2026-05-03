@@ -14,9 +14,8 @@ import {
   type AiChatCompletionPersistenceTransactionClient,
   completeAiChatLifecyclePersistence,
 } from './ai-chat-completion-persistence';
-import type { AiChatInitializedResult } from './ai-chat-initial-persistence';
 import { AI_CHAT_PROMPT_VERSION } from './ai-chat-initial-persistence';
-import type { ResolvedAiChatLifecycleInput } from './ai-chat-lifecycle-input';
+import type { AiChatInitializedResult, ResolvedAiChatLifecycleInput } from './ai-chat-lifecycle.types';
 import type { AiProviderGenerateResult } from './ai-provider.port';
 import type { AiUsageLedgerService, WriteAiUsageLogInput } from './ai-usage-ledger.service';
 
@@ -138,6 +137,7 @@ describe('completeAiChatLifecyclePersistence', () => {
       lifecycleInput,
       providerResult,
       selectedJournalContext: [],
+      promptVersion: AI_CHAT_PROMPT_VERSION,
       completedAt: new Date('2026-05-02T12:00:02.000Z'),
     });
 
@@ -167,6 +167,7 @@ describe('completeAiChatLifecyclePersistence', () => {
         text: 'Nice 🙂',
       },
       selectedJournalContext: [],
+      promptVersion: AI_CHAT_PROMPT_VERSION,
       completedAt: new Date('2026-05-02T12:00:02.000Z'),
     });
 
@@ -190,6 +191,7 @@ describe('completeAiChatLifecyclePersistence', () => {
       lifecycleInput,
       providerResult,
       selectedJournalContext: [],
+      promptVersion: AI_CHAT_PROMPT_VERSION,
       completedAt,
     });
 
@@ -229,6 +231,7 @@ describe('completeAiChatLifecyclePersistence', () => {
           wasTruncated: false,
         },
       ],
+      promptVersion: AI_CHAT_PROMPT_VERSION,
       completedAt: new Date('2026-05-02T12:00:02.000Z'),
     });
 
@@ -256,6 +259,7 @@ describe('completeAiChatLifecyclePersistence', () => {
       lifecycleInput,
       providerResult,
       selectedJournalContext: [],
+      promptVersion: AI_CHAT_PROMPT_VERSION,
       completedAt: new Date('2026-05-02T12:00:02.000Z'),
     });
 
@@ -268,6 +272,7 @@ describe('completeAiChatLifecyclePersistence', () => {
       lifecycleInput,
       providerResult,
       selectedJournalContext: [],
+      promptVersion: AI_CHAT_PROMPT_VERSION,
       completedAt: new Date('2026-05-02T12:00:02.000Z'),
     });
 
@@ -294,6 +299,7 @@ describe('completeAiChatLifecyclePersistence', () => {
       lifecycleInput,
       providerResult,
       selectedJournalContext: [],
+      promptVersion: AI_CHAT_PROMPT_VERSION,
       completedAt,
     });
 
@@ -315,6 +321,7 @@ describe('completeAiChatLifecyclePersistence', () => {
       lifecycleInput,
       providerResult,
       selectedJournalContext: [],
+      promptVersion: AI_CHAT_PROMPT_VERSION,
       completedAt: new Date('2026-05-02T12:00:02.000Z'),
     });
 
@@ -336,6 +343,7 @@ describe('completeAiChatLifecyclePersistence', () => {
       lifecycleInput,
       providerResult,
       selectedJournalContext: [],
+      promptVersion: AI_CHAT_PROMPT_VERSION,
       completedAt: new Date('2026-05-02T12:00:02.000Z'),
     });
 
@@ -354,6 +362,7 @@ describe('completeAiChatLifecyclePersistence', () => {
         lifecycleInput,
         providerResult,
         selectedJournalContext: [],
+        promptVersion: AI_CHAT_PROMPT_VERSION,
         completedAt: new Date('2026-05-02T12:00:02.000Z'),
       }),
     ).rejects.toBe(wrongTargetError);
@@ -371,6 +380,7 @@ describe('completeAiChatLifecyclePersistence', () => {
         lifecycleInput,
         providerResult,
         selectedJournalContext: [],
+        promptVersion: AI_CHAT_PROMPT_VERSION,
         completedAt: new Date('2026-05-02T12:00:02.000Z'),
       }),
     ).rejects.toBe(persistenceError);

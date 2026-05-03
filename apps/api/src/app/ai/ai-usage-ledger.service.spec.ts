@@ -4,7 +4,11 @@ import { AiBudgetCheckResult, AiEnvironment, AiUsageLogStatus } from '@repo/data
 import { PrismaService } from '../prisma/prisma.service';
 import { AiCostEstimatorService } from './ai-cost-estimator.service';
 import { AI_DEFAULT_MODEL } from './ai-model-policy';
-import { AiUsageLedgerService, type WriteAiUsageLogInput } from './ai-usage-ledger.service';
+import {
+  AiUsageLedgerService,
+  InvalidAiUsageLogInputError,
+  type WriteAiUsageLogInput,
+} from './ai-usage-ledger.service';
 
 type CreateUsageLogInput = {
   data: Record<string, unknown>;
@@ -125,6 +129,28 @@ describe('AiUsageLedgerService', () => {
         estimatedCostMicroUsd: 0,
       }),
     });
+  });
+
+  it('rejects token usage when provider is missing', async () => {
+    await expect(
+      service.writeUsageLog({
+        userId: 'user-id',
+        threadId: 'thread-id',
+        generationId: 'generation-id',
+        environment: AiEnvironment.DEMO,
+        model: AI_DEFAULT_MODEL,
+        promptVersion: 'journal-chat-v1',
+        status: AiUsageLogStatus.FAILED,
+        usage: {
+          inputTokens: 1,
+          cachedInputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 1,
+        },
+      }),
+    ).rejects.toBeInstanceOf(InvalidAiUsageLogInputError);
+
+    expect(createUsageLogMock).not.toHaveBeenCalled();
   });
 
   it('writes usage through a transaction client', async () => {
