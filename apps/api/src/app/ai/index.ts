@@ -1,6 +1,7 @@
 export * from './ai-budget.constants';
 export * from './ai-budget.service';
 export * from './ai-chat-completion-persistence';
+export * from './ai-chat-failure-persistence';
 export * from './ai-chat-initial-persistence';
 export * from './ai-chat-lifecycle.service';
 export * from './ai-chat-lifecycle-input';

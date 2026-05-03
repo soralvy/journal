@@ -3,6 +3,7 @@ import {
   AiBudgetCheckResult,
   AiChatMessageRole,
   AiEnvironment,
+  AiGenerationStatus,
   AiJournalContextSelectionMode,
   AiUsageLogStatus,
 } from '@repo/database';
@@ -407,5 +408,149 @@ describe('AiChatLifecycleService', () => {
     expect(usageLogText).not.toContain('private journal content');
     expect(usageLogText).not.toContain('recent user message');
     expect(usageLogText).not.toContain('hello');
+  });
+
+  it('returns FAILED and persists failure when retrieval fails', async () => {
+    selectJournalContextMock.mockRejectedValue(new Error('raw retrieval failure'));
+
+    const result = await service.submitMessage({
+      message: 'hello',
+      environment: AiEnvironment.DEMO,
+      providerCallsEnabled: true,
+      userId: 'user-id',
+    });
+
+    expect(result).toEqual({
+      status: 'FAILED',
+      generationId: 'generation-id',
+      safeErrorMessage: 'AI chat failed before generating a response.',
+    });
+    expect(generationUpdateMock).toHaveBeenCalledWith({
+      where: {
+        id: 'generation-id',
+      },
+      data: expect.objectContaining({
+        status: AiGenerationStatus.FAILED,
+        errorType: 'RETRIEVAL_ERROR',
+        safeErrorMessage: 'AI chat failed before generating a response.',
+      }),
+    });
+    expect(getCompletionUsageLogInput()).toEqual(
+      expect.objectContaining({
+        status: AiUsageLogStatus.FAILED,
+        budgetCheckResult: AiBudgetCheckResult.ALLOWED,
+        refusalReason: 'AI chat failed before generating a response.',
+      }),
+    );
+    expect(providerGenerateMock).not.toHaveBeenCalled();
+    expect(messageCreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns FAILED and skips provider when recent message fetch fails', async () => {
+    messageFindManyMock.mockRejectedValue(new Error('raw recent failure'));
+
+    const result = await service.submitMessage({
+      message: 'hello',
+      environment: AiEnvironment.DEMO,
+      providerCallsEnabled: true,
+      userId: 'user-id',
+    });
+
+    expect(result).toEqual({
+      status: 'FAILED',
+      generationId: 'generation-id',
+      safeErrorMessage: 'AI chat failed before generating a response.',
+    });
+    expect(generationUpdateMock).toHaveBeenCalledWith({
+      where: {
+        id: 'generation-id',
+      },
+      data: expect.objectContaining({
+        status: AiGenerationStatus.FAILED,
+        errorType: 'RECENT_MESSAGES_ERROR',
+      }),
+    });
+    expect(providerGenerateMock).not.toHaveBeenCalled();
+    expect(messageCreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns FAILED and skips provider when prompt assembly fails', async () => {
+    selectJournalContextMock.mockResolvedValue({
+      selectionMode: AiJournalContextSelectionMode.RECENT,
+      selectionReason: 'recent journal context fallback',
+      items: [
+        {
+          journalEntryId: 'journal-entry-id',
+          content: 'context',
+          journalEntryCreatedAt: null,
+          selectionMode: AiJournalContextSelectionMode.RECENT,
+          selectionReason: 'recent journal context fallback',
+          rank: 1,
+          includedCharCount: 7,
+          includedTokenEstimate: 2,
+          wasTruncated: false,
+        },
+      ],
+    });
+
+    const result = await service.submitMessage({
+      message: 'hello',
+      environment: AiEnvironment.DEMO,
+      providerCallsEnabled: true,
+      userId: 'user-id',
+    });
+
+    expect(result).toEqual({
+      status: 'FAILED',
+      generationId: 'generation-id',
+      safeErrorMessage: 'AI chat failed before generating a response.',
+    });
+    expect(generationUpdateMock).toHaveBeenCalledWith({
+      where: {
+        id: 'generation-id',
+      },
+      data: expect.objectContaining({
+        status: AiGenerationStatus.FAILED,
+        errorType: 'PROMPT_ASSEMBLY_ERROR',
+      }),
+    });
+    expect(providerGenerateMock).not.toHaveBeenCalled();
+    expect(messageCreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns FAILED and persists failure when provider fails without retrying provider', async () => {
+    providerGenerateMock.mockRejectedValue(new Error('raw provider failure'));
+
+    const result = await service.submitMessage({
+      message: 'hello',
+      environment: AiEnvironment.DEMO,
+      providerCallsEnabled: true,
+      userId: 'user-id',
+    });
+
+    expect(result).toEqual({
+      status: 'FAILED',
+      generationId: 'generation-id',
+      safeErrorMessage: 'AI provider failed to generate a response.',
+    });
+    expect(generationUpdateMock).toHaveBeenCalledWith({
+      where: {
+        id: 'generation-id',
+      },
+      data: expect.objectContaining({
+        status: AiGenerationStatus.FAILED,
+        errorType: 'PROVIDER_ERROR',
+        safeErrorMessage: 'AI provider failed to generate a response.',
+      }),
+    });
+    expect(getCompletionUsageLogInput()).toEqual(
+      expect.objectContaining({
+        status: AiUsageLogStatus.FAILED,
+        refusalReason: 'AI provider failed to generate a response.',
+      }),
+    );
+    expect(providerGenerateMock).toHaveBeenCalledTimes(1);
+    expect(messageCreateMock).toHaveBeenCalledTimes(1);
+    expect(contextCreateManyMock).not.toHaveBeenCalled();
   });
 });

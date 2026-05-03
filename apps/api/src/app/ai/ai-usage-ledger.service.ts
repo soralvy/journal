@@ -37,19 +37,45 @@ const getTotalTokens = (usage: AiTokenUsage): number => {
   return usage.totalTokens;
 };
 
+export class InvalidAiUsageLogInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidAiUsageLogInputError';
+  }
+}
+
+const estimateUsageCostMicroUsd = (
+  usage: AiTokenUsage | undefined,
+  provider: AiProviderName | undefined,
+  model: string | undefined,
+  costEstimator: AiCostEstimatorService,
+): number => {
+  if (usage === undefined) {
+    return 0;
+  }
+
+  if (provider === undefined) {
+    throw new InvalidAiUsageLogInputError('provider is required when usage is provided.');
+  }
+
+  return costEstimator.estimateCostMicroUsd({
+    provider,
+    model,
+    usage,
+  });
+};
+
 const buildAiUsageLogCreateData = (
   input: WriteAiUsageLogInput,
   costEstimator: AiCostEstimatorService,
 ): Prisma.AiUsageLogUncheckedCreateInput => {
   const usage = input.usage;
-  const estimatedCostMicroUsd =
-    usage === undefined || input.provider === undefined
-      ? 0
-      : costEstimator.estimateCostMicroUsd({
-          provider: input.provider,
-          model: input.model,
-          usage,
-        });
+
+  if (usage !== undefined && input.provider === undefined) {
+    throw new InvalidAiUsageLogInputError('provider is required when usage is provided.');
+  }
+
+  const estimatedCostMicroUsd = estimateUsageCostMicroUsd(input.usage, input.provider, input.model, costEstimator);
 
   return {
     userId: input.userId,

@@ -7,7 +7,13 @@ import {
   Prisma,
 } from '@repo/database';
 
-import { countAiChatMessageChars, type ResolvedAiChatLifecycleInput } from './ai-chat-lifecycle-input';
+import {
+  AiChatInitializedResult,
+  AiChatInitialPersistencePrismaClient,
+  AiChatInitialPersistenceTransactionClient,
+  ResolvedAiChatLifecycleInput,
+} from './ai-chat-lifecycle.types';
+import { countAiChatMessageChars } from './ai-chat-lifecycle-input';
 import { getMvpAiModelPolicy } from './ai-model-policy';
 
 export const AI_CHAT_PROMPT_VERSION = 'journal-chat-v1';
@@ -16,34 +22,12 @@ const THREAD_INACTIVITY_MS = 24 * 60 * 60 * 1000;
 const CHAT_CONTENT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const INITIAL_PERSISTENCE_MAX_ATTEMPTS = 2;
 
-/**
- * Internal Phase 6.4 result. Should not be exposed by future HTTP endpoint.
- * Replaced by COMPLETED/FAILED once provider lifecycle is implemented.
- */
-export interface AiChatInitializedResult {
-  status: 'INITIALIZED';
-  threadId: string;
-  userMessageId: string;
-  generationId: string;
-  userMessageSequence: number;
-  lifecycleStartedAt: Date;
-}
-
-export interface AiChatInitialPersistencePrismaClient {
-  $transaction<T>(callback: (tx: AiChatInitialPersistenceTransactionClient) => Promise<T>): Promise<T>;
-}
-
 export class AiChatInitialPersistenceError extends Error {
   constructor() {
     super('Initial AI chat persistence retry loop exhausted unexpectedly.');
     this.name = 'AiChatInitialPersistenceError';
   }
 }
-
-export type AiChatInitialPersistenceTransactionClient = Pick<
-  Prisma.TransactionClient,
-  'aiChatThread' | 'aiChatMessage' | 'aiGeneration'
->;
 
 interface AiChatThreadReference {
   id: string;

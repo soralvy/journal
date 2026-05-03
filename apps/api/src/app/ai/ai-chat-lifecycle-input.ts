@@ -1,24 +1,7 @@
-import type { AiEnvironment } from '@repo/database';
+import { ResolvedAiChatLifecycleInput, RunAiChatLifecycleInput } from './ai-chat-lifecycle.types';
 
 export const MAX_CHAT_MESSAGE_CHARS = 4000;
 export const DEMO_USER_ID = 'demo-user';
-
-export interface RunAiChatLifecycleInput {
-  message: string;
-  environment: AiEnvironment;
-  providerCallsEnabled: boolean;
-  now?: Date;
-  userId?: string;
-  useDemoUser?: boolean;
-}
-
-export interface ResolvedAiChatLifecycleInput {
-  message: string;
-  userId: string;
-  environment: AiEnvironment;
-  providerCallsEnabled: boolean;
-  lifecycleStartedAt: Date;
-}
 
 export class InvalidAiChatInputError extends Error {
   constructor(message: string) {
