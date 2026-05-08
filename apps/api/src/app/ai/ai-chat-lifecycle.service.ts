@@ -19,7 +19,9 @@ import { findRecentAiChatMessages } from './ai-chat-recent-messages';
 import { getAiChatRefusalReason, mapAiChatRefusalStatus } from './ai-chat-refusal';
 import { AiJournalContextService } from './ai-journal-context.service';
 import { getMvpAiModelPolicy } from './ai-model-policy';
-import { assembleJournalChatPrompt, AssembleJournalChatPromptInput } from './ai-prompt-assembler';
+import { AssembleJournalChatPromptInput } from './ai-prompt-assembler';
+import type { AiPromptAssemblerPort } from './ai-prompt-assembler.port';
+import { AI_PROMPT_ASSEMBLER } from './ai-prompt-assembler.port';
 import { AI_PROVIDER, type AiProviderPort } from './ai-provider.port';
 import { AiUsageLedgerService } from './ai-usage-ledger.service';
 
@@ -40,7 +42,10 @@ export class AiChatLifecycleService {
     private readonly budgetService: AiBudgetService,
     private readonly usageLedger: AiUsageLedgerService,
     private readonly journalContextService: AiJournalContextService,
-    @Inject(AI_PROVIDER) private readonly provider: AiProviderPort,
+    @Inject(AI_PROMPT_ASSEMBLER)
+    private readonly promptAssembler: AiPromptAssemblerPort,
+    @Inject(AI_PROVIDER)
+    private readonly provider: AiProviderPort,
   ) {}
 
   async submitMessage(input: RunAiChatLifecycleInput): Promise<AiChatLifecycleResult> {
@@ -146,7 +151,7 @@ export class AiChatLifecycleService {
     recentMessages: AssembleJournalChatPromptInput['recentMessages'],
   ) {
     try {
-      return assembleJournalChatPrompt({
+      return this.promptAssembler.assembleJournalChatPrompt({
         selectedJournalContext,
         recentMessages,
         currentUserMessage: input.message,

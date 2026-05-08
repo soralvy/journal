@@ -18,7 +18,13 @@ import {
 } from './ai-chat-lifecycle-input';
 import { AiJournalContextService } from './ai-journal-context.service';
 import { AI_DEFAULT_MODEL, AI_MAX_OUTPUT_TOKENS } from './ai-model-policy';
-import type { AiProviderGenerateInput, AiProviderGenerateResult, AiProviderPort } from './ai-provider.port';
+import { AiPromptAssemblerPort } from './ai-prompt-assembler.port';
+import type {
+  AiProviderGenerateInput,
+  AiProviderGenerateResult,
+  AiProviderMessage,
+  AiProviderPort,
+} from './ai-provider.port';
 import { AiUsageLedgerService, type WriteAiUsageLogInput } from './ai-usage-ledger.service';
 
 type TransactionCallback<T> = (tx: typeof transactionClient) => Promise<T>;
@@ -27,7 +33,7 @@ const checkBudgetMock = jest.fn<(input: CheckAiBudgetInput) => Promise<AiBudgetD
 const writeUsageLogMock = jest.fn<(input: WriteAiUsageLogInput) => Promise<Record<string, unknown>>>();
 const writeUsageLogInTransactionMock =
   jest.fn<(tx: typeof transactionClient, input: WriteAiUsageLogInput) => Promise<Record<string, unknown>>>();
-const selectJournalContextMock = jest.fn<() => Promise<Record<string, unknown>>>();
+const selectJournalContextMock = jest.fn<AiJournalContextService['selectJournalContext']>();
 const providerGenerateMock = jest.fn<(input: AiProviderGenerateInput) => Promise<AiProviderGenerateResult>>();
 const transactionMock = jest.fn(<T>(callback: TransactionCallback<T>) => callback(transactionClient));
 const threadUpdateManyMock = jest.fn<(args: unknown) => Promise<Record<string, unknown>>>();
@@ -42,6 +48,19 @@ const generationCreateMock = jest.fn<(args: unknown) => Promise<{ id: string }>>
 const generationUpdateMock = jest.fn<(args: unknown) => Promise<Record<string, unknown>>>();
 const contextCreateManyMock = jest.fn<(args: unknown) => Promise<Record<string, unknown>>>();
 const usageCreateMock = jest.fn<(args: unknown) => Promise<Record<string, unknown>>>();
+
+const assembleJournalChatPromptMock = jest.fn<AiPromptAssemblerPort['assembleJournalChatPrompt']>();
+
+const assembledMessages: AiProviderMessage[] = [
+  {
+    role: 'system',
+    content: 'assembled system prompt',
+  },
+  {
+    role: 'user',
+    content: 'hello',
+  },
+];
 
 const transactionClient = {
   aiChatThread: {
@@ -121,6 +140,8 @@ const getTransactionUsageLogInput = (): WriteAiUsageLogInput => {
   return firstCall[1];
 };
 
+const journalEntryCreatedAt = new Date('2026-05-01T08:00:00.000Z');
+
 describe('AiChatLifecycleService', () => {
   let service: AiChatLifecycleService;
   let inTransaction = false;
@@ -144,6 +165,7 @@ describe('AiChatLifecycleService', () => {
     generationCreateMock.mockReset();
     generationUpdateMock.mockReset();
     contextCreateManyMock.mockReset();
+    assembleJournalChatPromptMock.mockReset();
     usageCreateMock.mockReset();
     inTransaction = false;
     providerCalledInsideTransaction = false;
@@ -159,7 +181,7 @@ describe('AiChatLifecycleService', () => {
         {
           journalEntryId: 'journal-entry-id',
           content: 'private journal content',
-          journalEntryCreatedAt: new Date('2026-05-01T08:00:00.000Z'),
+          journalEntryCreatedAt,
           selectionMode: AiJournalContextSelectionMode.RECENT,
           selectionReason: 'recent journal context fallback',
           rank: 1,
@@ -210,6 +232,7 @@ describe('AiChatLifecycleService', () => {
     generationUpdateMock.mockResolvedValue({ id: 'generation-id' });
     contextCreateManyMock.mockResolvedValue({ count: 1 });
     usageCreateMock.mockResolvedValue({ id: 'usage-log-id' });
+    assembleJournalChatPromptMock.mockReturnValue(assembledMessages);
 
     service = new AiChatLifecycleService(
       prismaService as unknown as PrismaService,
@@ -219,6 +242,9 @@ describe('AiChatLifecycleService', () => {
         writeUsageLogInTransaction: writeUsageLogInTransactionMock,
       } as unknown as AiUsageLedgerService,
       { selectJournalContext: selectJournalContextMock } as unknown as AiJournalContextService,
+      {
+        assembleJournalChatPrompt: assembleJournalChatPromptMock,
+      } satisfies AiPromptAssemblerPort,
       { generate: providerGenerateMock } as unknown as AiProviderPort,
     );
   });
@@ -343,16 +369,24 @@ describe('AiChatLifecycleService', () => {
       userId: 'user-id',
     });
 
-    expect(providerGenerateMock).toHaveBeenCalledWith({
-      messages: [
-        expect.objectContaining({ role: 'system' }),
+    expect(assembleJournalChatPromptMock).toHaveBeenCalledWith({
+      selectedJournalContext: [
         expect.objectContaining({
-          role: 'system',
-          content: expect.stringContaining('private journal content'),
+          journalEntryId: 'journal-entry-id',
+          content: 'private journal content',
         }),
-        { role: 'user', content: 'recent user message' },
-        { role: 'user', content: 'hello' },
       ],
+      recentMessages: [
+        {
+          role: 'user',
+          content: 'recent user message',
+        },
+      ],
+      currentUserMessage: 'hello',
+    });
+
+    expect(providerGenerateMock).toHaveBeenCalledWith({
+      messages: assembledMessages,
       model: AI_DEFAULT_MODEL,
       maxOutputTokens: AI_MAX_OUTPUT_TOKENS,
     });
@@ -498,7 +532,7 @@ describe('AiChatLifecycleService', () => {
         {
           journalEntryId: 'journal-entry-id',
           content: 'context',
-          journalEntryCreatedAt: null,
+          journalEntryCreatedAt,
           selectionMode: AiJournalContextSelectionMode.RECENT,
           selectionReason: 'recent journal context fallback',
           rank: 1,
@@ -507,6 +541,10 @@ describe('AiChatLifecycleService', () => {
           wasTruncated: false,
         },
       ],
+    });
+
+    assembleJournalChatPromptMock.mockImplementationOnce(() => {
+      throw new Error('raw prompt assembly failure');
     });
 
     const result = await service.submitMessage({
@@ -521,6 +559,7 @@ describe('AiChatLifecycleService', () => {
       generationId: 'generation-id',
       safeErrorMessage: 'AI chat failed before generating a response.',
     });
+
     expect(generationUpdateMock).toHaveBeenCalledWith({
       where: {
         id: 'generation-id',
@@ -528,14 +567,28 @@ describe('AiChatLifecycleService', () => {
       data: expect.objectContaining({
         status: AiGenerationStatus.FAILED,
         errorType: 'PROMPT_ASSEMBLY_ERROR',
+        safeErrorMessage: 'AI chat failed before generating a response.',
       }),
     });
+
+    expect(getTransactionUsageLogInput()).toEqual(
+      expect.objectContaining({
+        providerName: 'FAKE',
+        model: AI_DEFAULT_MODEL,
+        promptVersion: 'journal-chat-v1',
+        status: AiUsageLogStatus.FAILED,
+        budgetCheckResult: AiBudgetCheckResult.ALLOWED,
+        refusalReason: 'AI chat failed before generating a response.',
+      }),
+    );
+
     expect(providerGenerateMock).not.toHaveBeenCalled();
     expect(messageCreateMock).toHaveBeenCalledTimes(1);
+    expect(contextCreateManyMock).not.toHaveBeenCalled();
   });
 
   it('returns FAILED and persists failure when provider fails without retrying provider', async () => {
-    providerGenerateMock.mockRejectedValue(new Error('raw provider failure'));
+    providerGenerateMock.mockRejectedValueOnce(new Error('raw provider failure'));
 
     const result = await service.submitMessage({
       message: 'hello',
@@ -549,6 +602,7 @@ describe('AiChatLifecycleService', () => {
       generationId: 'generation-id',
       safeErrorMessage: 'AI provider failed to generate a response.',
     });
+
     expect(generationUpdateMock).toHaveBeenCalledWith({
       where: {
         id: 'generation-id',
@@ -559,6 +613,7 @@ describe('AiChatLifecycleService', () => {
         safeErrorMessage: 'AI provider failed to generate a response.',
       }),
     });
+
     expect(getTransactionUsageLogInput()).toEqual(
       expect.objectContaining({
         providerName: 'FAKE',
@@ -568,9 +623,17 @@ describe('AiChatLifecycleService', () => {
         refusalReason: 'AI provider failed to generate a response.',
       }),
     );
+
     expect(providerGenerateMock).toHaveBeenCalledTimes(1);
     expect(messageCreateMock).toHaveBeenCalledTimes(1);
     expect(contextCreateManyMock).not.toHaveBeenCalled();
+
+    const persistedPayload = JSON.stringify([
+      generationUpdateMock.mock.calls,
+      writeUsageLogInTransactionMock.mock.calls,
+    ]);
+
+    expect(persistedPayload).not.toContain('raw provider failure');
   });
 
   it('rejects non-boolean providerCallsEnabled', () => {
